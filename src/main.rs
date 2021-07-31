@@ -27,7 +27,6 @@ async fn main() {
         .data(Storage::default())
         .finish();
 
-    log::info!("Playground: http://localhost:8000");
 
     let graphql_post = async_graphql_warp::graphql(schema.clone()).and_then(
         |(schema, request): (
@@ -48,5 +47,5 @@ async fn main() {
         .or(graphql_playground)
         .or(graphql_post);
 
-    warp::serve(routes).run(([0, 0, 0, 0], 8000)).await;
+    warp::serve(routes).run(([0, 0, 0, 0], std::env::var("PORT").unwrap_or("8000".into()).parse().unwrap_or(8000))).await;
 }
