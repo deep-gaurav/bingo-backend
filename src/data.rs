@@ -135,20 +135,28 @@ impl RoomState {
             }
         }
     }
+
+    pub fn as_game(&self) -> Option<&GameData> {
+        if let Self::Game(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, SimpleObject, Serialize, Clone)]
 pub struct LobbyData {
-    players: Vec<LobbyPlayer>,
+    pub players: Vec<LobbyPlayer>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Clone)]
 pub struct LobbyPlayer {
-    player: Player,
+    pub player: Player,
 
     #[serde(skip_serializing)]
     #[graphql(skip)]
-    send_channel: Option<Sender<ServerResponse>>,
+    pub send_channel: Option<Sender<ServerResponse>>,
 }
 
 impl BroadcastPlayers<GamePlayer> for GameData {
@@ -237,6 +245,6 @@ pub enum ServerResponse {
 
 #[derive(SimpleObject, Serialize, Clone)]
 pub struct GameMessage {
-    event: GameEvents,
-    room: Room,
+    pub event: GameEvents,
+    pub room: Room,
 }
