@@ -1,0 +1,27 @@
+[package]
+name = "bingo-backend"
+version = "0.1.0"
+authors = [
+    "Deep Gaurav <deepgauravraj@gmail.com>",
+    "Ujjawal Shrivastava <ujjawalshrivastava19@gmail.com>",
+]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+async-graphql = "2"
+warp = "0.3"
+async-graphql-warp = "2"
+rand = "0.8"
+anyhow = "1"
+log = "0.4"
+pretty_env_logger = "0.4"
+fn-error-context = "0.2"
+futures = "0.3"
+futures-core = "0.3"
+tokio-stream = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+async-trait = "0.1.51"
