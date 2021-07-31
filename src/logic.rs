@@ -8,13 +8,18 @@ use tokio::sync::mpsc::Sender;
 
 #[derive(Serialize, Union, Clone)]
 pub enum GameEvents {
-    GameStarted(GameStated),
-    RoomUpdate(Room),
+    GameStarted(GameStarted),
+    RoomUpdate(RoomUpdate),
 }
 
 #[derive(Serialize, SimpleObject, Clone)]
-pub struct GameStated {
+pub struct GameStarted {
     game_state: GameState,
+}
+
+#[derive(Serialize,SimpleObject,Clone)]
+pub struct RoomUpdate {
+    pub room:Room
 }
 
 pub struct PlayerHandler {
@@ -118,6 +123,16 @@ pub enum GameState {
     GameRunning(GameRunning),
 }
 
+impl GameState {
+    pub fn as_game_running(&self) -> Option<&GameRunning> {
+        if let Self::GameRunning(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(SimpleObject, Serialize, Clone)]
 pub struct BoardCreation {
     ready: Vec<String>,
@@ -136,6 +151,22 @@ pub struct GameData {
     pub board_size: u16,
     pub game_state: GameState,
 }
+
+impl GameData {
+    fn change_turn(&mut self){
+        if let GameState::GameRunning(data)=&mut self.game_state{
+            let mut cycle_iter = self.players.iter().cycle();
+            while let Some(player) =cycle_iter .next(){
+                if player.player.id == data.turn{
+                    if let Some(next) = cycle_iter.next(){
+                        data.turn = next.player.id.to_string();
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[derive(Serialize, SimpleObject, Clone)]
 pub struct GamePlayer {
     pub player: Player,
@@ -173,7 +204,7 @@ impl Room {
                             }
                         );
                         self.state.broadcast(ServerResponse::GameMessage(GameMessage{
-                            event: GameEvents::GameStarted(GameStated{
+                            event: GameEvents::GameStarted(GameStarted{
                                 game_state,
                             }),
                             room: self.clone(),
@@ -195,9 +226,19 @@ impl Room {
                                         player.board = Some(board);
                                     
                                         board_creation.ready.push(player_id.into());
+                                        if board_creation.ready.len() == data.players.len(){
+                                            data.game_state = GameState::GameRunning(
+                                                GameRunning{
+                                                    turn: data.players.first().ok_or(anyhow::anyhow!("No player"))?.player.id.clone(),
+                                                    selected_numbers: vec![],
+                                                }
+                                            );
+                                        }
                                         self.state.broadcast(ServerResponse::GameMessage(GameMessage{
                                             event: GameEvents::RoomUpdate(
-                                                self.clone()
+                                                RoomUpdate{
+                                                    room:self.clone()
+                                                }
                                             ),
                                             room: self.clone(),
                                         })).await;
@@ -219,18 +260,21 @@ impl Room {
                     RoomState::Game(data) => {
                         match &mut data.game_state{
                             GameState::BoardCreation(_) =>  Err(anyhow::anyhow!("Game Not Running"))?,
-                            GameState::GameRunning(data) => {
-                                if &data.turn == player_id{
-                                    if data.selected_numbers.iter().any(|c|c.cell_value==mov){
+                            GameState::GameRunning(running_data) => {
+                                if &running_data.turn == player_id{
+                                    if running_data.selected_numbers.iter().any(|c|c.cell_value==mov){
                                         Err(anyhow::anyhow!("Invalid move"))?;
                                     }else {
-                                        data.selected_numbers.push(SelectedCell{
+                                        running_data.selected_numbers.push(SelectedCell{
                                             selected_by:player_id.into(),
                                             cell_value:mov
                                         });
+                                        data.change_turn();
                                         self.state.broadcast(ServerResponse::GameMessage(GameMessage{
                                             event: GameEvents::RoomUpdate(
-                                                self.clone()
+                                                RoomUpdate{
+                                                    room:self.clone()
+                                                }
                                             ),
                                             room: self.clone(),
                                         })).await;

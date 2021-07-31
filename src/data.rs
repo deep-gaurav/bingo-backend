@@ -16,9 +16,24 @@ pub struct Storage {
 }
 
 #[derive(Serialize, SimpleObject, Clone)]
+#[graphql(complex)]
 pub struct Room {
     id: String,
     pub state: RoomState,
+}
+
+#[ComplexObject]
+impl Room {
+    pub async fn players(&self)->Vec<CommonPlayer>{
+        match &self.state {
+            RoomState::Lobby(data) => data.players.iter().cloned().map(
+                |p|CommonPlayer::LobbyPlayer(p)
+            ).collect(),
+            RoomState::Game(data) => data.players.iter().cloned().map(
+                |p|CommonPlayer::GamePlayer(p)
+            ).collect(),
+        }
+    }
 }
 
 impl Room {
@@ -209,7 +224,25 @@ trait ChannelPlayer {
             None => {}
         }
     }
+
+    fn has_channel(&self)->bool{
+        self.get_channel().is_some()
+    }
+
+    async fn is_connected<'ctx>(&self,ctx: &Context<'ctx>)->Result<bool,async_graphql::Error>{
+        Ok(self.get_channel().is_some())
+    }
 }
+
+#[derive(Interface)]
+#[graphql(
+    field(name = "is_connected", type = "bool")
+)]
+pub enum CommonPlayer {
+    GamePlayer(GamePlayer),
+    LobbyPlayer(LobbyPlayer),
+}
+
 
 #[derive(SimpleObject, Serialize, Clone, Debug)]
 pub struct Player {
