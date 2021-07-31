@@ -1,15 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_graphql::{Context, Object, Subscription};
 use futures::Stream;
-use futures::StreamExt;
-use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::RwLock;
-use tokio_stream::wrappers::ReceiverStream;
 
 use crate::data::PlayerConnected;
 use crate::data::PlayerJoined;

@@ -2,7 +2,7 @@ use std::convert::Infallible;
 
 use async_graphql::{
     http::{playground_source, GraphQLPlaygroundConfig},
-    EmptyMutation, EmptySubscription, Object, Schema,
+    Schema,
 };
 use async_graphql_warp::{graphql_subscription, Response};
 use warp::http::Response as HttpResponse;
@@ -27,7 +27,6 @@ async fn main() {
         .data(Storage::default())
         .finish();
 
-
     let graphql_post = async_graphql_warp::graphql(schema.clone()).and_then(
         |(schema, request): (
             Schema<QueryRoot, MutationRoot, Subscription>,
@@ -45,7 +44,16 @@ async fn main() {
 
     let routes = graphql_subscription(schema)
         .or(graphql_playground)
-        .or(graphql_post);
+        .or(graphql_post)
+        .with(warp::cors().allow_any_origin());
 
-    warp::serve(routes).run(([0, 0, 0, 0], std::env::var("PORT").unwrap_or("8000".into()).parse().unwrap_or(8000))).await;
+    warp::serve(routes)
+        .run((
+            [0, 0, 0, 0],
+            std::env::var("PORT")
+                .unwrap_or("8000".into())
+                .parse()
+                .unwrap_or(8000),
+        ))
+        .await;
 }

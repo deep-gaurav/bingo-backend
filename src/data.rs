@@ -1,14 +1,11 @@
-use std::{any, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::*;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tokio::sync::{mpsc::Sender, RwLock};
 
-use crate::{
-    logic::{Board, GameData, GameEvents, GamePlayer, GameState, SelectedCell},
-    main,
-};
+use crate::logic::{GameData, GameEvents, GamePlayer};
 
 #[derive(Default)]
 pub struct Storage {
@@ -24,14 +21,20 @@ pub struct Room {
 
 #[ComplexObject]
 impl Room {
-    pub async fn players(&self)->Vec<CommonPlayer>{
+    pub async fn players(&self) -> Vec<CommonPlayer> {
         match &self.state {
-            RoomState::Lobby(data) => data.players.iter().cloned().map(
-                |p|CommonPlayer::LobbyPlayer(p)
-            ).collect(),
-            RoomState::Game(data) => data.players.iter().cloned().map(
-                |p|CommonPlayer::GamePlayer(p)
-            ).collect(),
+            RoomState::Lobby(data) => data
+                .players
+                .iter()
+                .cloned()
+                .map(|p| CommonPlayer::LobbyPlayer(p))
+                .collect(),
+            RoomState::Game(data) => data
+                .players
+                .iter()
+                .cloned()
+                .map(|p| CommonPlayer::GamePlayer(p))
+                .collect(),
         }
     }
 }
@@ -217,7 +220,7 @@ trait ChannelPlayer {
         match self.get_channel() {
             Some(channel) => match channel.send(message).await {
                 Ok(_) => {}
-                Err(er) => {
+                Err(_er) => {
                     log::warn!("ERROR SENDING ")
                 }
             },
@@ -225,24 +228,21 @@ trait ChannelPlayer {
         }
     }
 
-    fn has_channel(&self)->bool{
+    fn has_channel(&self) -> bool {
         self.get_channel().is_some()
     }
 
-    async fn is_connected<'ctx>(&self,ctx: &Context<'ctx>)->Result<bool,async_graphql::Error>{
+    async fn is_connected<'ctx>(&self, _ctx: &Context<'ctx>) -> Result<bool, async_graphql::Error> {
         Ok(self.get_channel().is_some())
     }
 }
 
 #[derive(Interface)]
-#[graphql(
-    field(name = "is_connected", type = "bool")
-)]
+#[graphql(field(name = "is_connected", type = "bool"))]
 pub enum CommonPlayer {
     GamePlayer(GamePlayer),
     LobbyPlayer(LobbyPlayer),
 }
-
 
 #[derive(SimpleObject, Serialize, Clone, Debug)]
 pub struct Player {
