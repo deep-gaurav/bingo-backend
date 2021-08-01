@@ -162,7 +162,7 @@ pub struct GameData {
 }
 
 impl GameData {
-    fn change_turn(&mut self) {
+    pub fn change_turn(&mut self) {
         if let GameState::GameRunning(data) = &mut self.game_state {
             let mut cycle_iter = self.players.iter().cycle();
             while let Some(player) = cycle_iter.next() {

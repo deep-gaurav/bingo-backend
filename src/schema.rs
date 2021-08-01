@@ -10,6 +10,7 @@ use tokio::sync::RwLock;
 use crate::data::PlayerConnected;
 use crate::data::PlayerJoined;
 use crate::data::PlayerLeft;
+use crate::data::RoomState;
 use crate::data::ServerResponse;
 use crate::logic::PlayerHandler;
 use crate::{
@@ -159,6 +160,9 @@ impl Drop for PlayerDisconnected {
                             room: room.clone(),
                         }))
                         .await;
+                    if let RoomState::Game(data) = &mut room.state {
+                        data.change_turn();
+                    }
                 }
             }
             if remove {
