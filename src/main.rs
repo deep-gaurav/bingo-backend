@@ -45,7 +45,13 @@ async fn main() {
     let routes = graphql_subscription(schema)
         .or(graphql_playground)
         .or(graphql_post)
-        .with(warp::cors().allow_any_origin());
+        .with(
+            warp::cors()
+                .allow_any_origin()
+                .allow_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
+                .allow_headers(vec!["Content-Type"])
+                .build(),
+        );
 
     warp::serve(routes)
         .run((
