@@ -193,28 +193,27 @@ trait BroadcastPlayers<T: ChannelPlayer + Send + Sync> {
     fn get_player(&self) -> &Vec<T>;
 
     async fn broadcast(&self, message: ServerResponse) {
-        for p in self.get_player() {
-            p.send(message.clone()).await;
-        }
+        let futures = self.get_player().iter().map(|f| f.send(message.clone()));
+        futures::future::join_all(futures).await;
     }
 }
 
 #[async_trait]
 impl ChannelPlayer for GamePlayer {
-    fn get_channel(&self) -> Option<Sender<ServerResponse>> {
-        self.send_channel.clone()
+    fn get_channel(&self) -> &Option<Sender<ServerResponse>> {
+        &self.send_channel
     }
 }
 #[async_trait]
 impl ChannelPlayer for LobbyPlayer {
-    fn get_channel(&self) -> Option<Sender<ServerResponse>> {
-        self.send_channel.clone()
+    fn get_channel(&self) -> &Option<Sender<ServerResponse>> {
+        &self.send_channel
     }
 }
 
 #[async_trait]
 trait ChannelPlayer {
-    fn get_channel(&self) -> Option<Sender<ServerResponse>>;
+    fn get_channel(&self) -> &Option<Sender<ServerResponse>>;
 
     async fn send(&self, message: ServerResponse) {
         match self.get_channel() {
