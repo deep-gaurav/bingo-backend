@@ -29,6 +29,10 @@ impl QueryRoot {
     pub async fn game_event(&self, player_id: String, room_id: String) -> PlayerHandler {
         PlayerHandler { player_id, room_id }
     }
+
+    pub async fn ping(&self) -> String {
+        "pong".into()
+    }
 }
 
 pub struct MutationRoot;
