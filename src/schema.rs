@@ -76,7 +76,7 @@ impl MutationRoot {
         let mut rooms = data.private_rooms.write().await;
         let room = rooms
             .get_mut(&room_id)
-            .ok_or(async_graphql::Error::from("Room does not exis"))?;
+            .ok_or(async_graphql::Error::from("Room does not exist"))?;
         let player = Player {
             id: player_id,
             name: player_name,

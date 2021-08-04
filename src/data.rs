@@ -64,7 +64,7 @@ impl RoomState {
         match self {
             RoomState::Lobby(lobbydata) => {
                 if lobbydata.players.iter().any(|p| p.player.id == player.id) {
-                    Err(anyhow::anyhow!("Player already exists"))
+                    Ok(())
                 } else {
                     lobbydata.players.push(LobbyPlayer {
                         player,
