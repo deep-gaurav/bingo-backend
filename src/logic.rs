@@ -163,12 +163,27 @@ pub struct GameData {
 
 impl GameData {
     pub fn change_turn(&mut self) {
+        if !self.players.iter().any(|p| p.send_channel.is_some()) {
+            return;
+        }
         if let GameState::GameRunning(data) = &mut self.game_state {
             let mut cycle_iter = self.players.iter().cycle();
+            let current_player_position =
+                self.players.iter().position(|p| p.player.id == data.turn);
+            if let Some(position) = current_player_position {
+                cycle_iter.nth(position);
+                while let Some(player) = cycle_iter.next() {
+                    if player.send_channel.is_some() {
+                        data.turn = player.player.id.to_string();
+                        break;
+                    }
+                }
+            }
             while let Some(player) = cycle_iter.next() {
                 if player.player.id == data.turn {
                     if let Some(next) = cycle_iter.next() {
                         data.turn = next.player.id.to_string();
+                        break;
                     }
                 }
             }

@@ -12,7 +12,7 @@ use crate::data::PlayerJoined;
 use crate::data::PlayerLeft;
 use crate::data::RoomState;
 use crate::data::ServerResponse;
-use crate::logic::PlayerHandler;
+use crate::logic::{GameState, PlayerHandler};
 use crate::{
     data::{Player, Room, Storage},
     utils::generate_rand_string,
@@ -148,29 +148,42 @@ impl Drop for PlayerDisconnected {
         let player = self.player.clone();
 
         tokio::spawn(async move {
+            log::info!("Taking room to remove player {:#?}", player);
             let mut rooms = rooms.write().await;
-
+            log::info!("Removing player {:#?}", player);
             let mut remove = false;
             if let Some(room) = rooms.get_mut(&room_id) {
                 if let Err(er) = room.state.remove_player(&player.id) {
-                    log::warn!("{:#?}", er)
+                    log::warn!("Could not remove player {:#?}", er)
+                } else {
+                    log::info!("Player removed {:#?}", player);
                 }
                 if room.state.is_empty() {
                     remove = true;
                 } else {
+                    log::info!("Sending broadcast PlayerLeft {:#?}", player);
                     room.state
                         .broadcast(ServerResponse::PlayerLeft(PlayerLeft {
                             player: player.clone(),
                             room: room.clone(),
                         }))
                         .await;
+                    log::info!("Updating Turn");
+
                     if let RoomState::Game(data) = &mut room.state {
-                        data.change_turn();
+                        if let GameState::GameRunning(running_data) = &data.game_state {
+                            if running_data.turn == player.id {
+                                data.change_turn();
+                            }
+                        }
                     }
+
+                    log::info!("Turn Updated")
                 }
             }
             if remove {
                 rooms.remove(&room_id);
+                log::info!("Deleting room {:#?}", room_id);
             }
         });
     }
