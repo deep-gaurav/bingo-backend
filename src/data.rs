@@ -74,7 +74,13 @@ impl RoomState {
                     Ok(())
                 }
             }
-            RoomState::Game(_) => Err(anyhow::anyhow!("Game already running")),
+            RoomState::Game(data) => {
+                if data.players.iter().any(|p| p.player.id == player.id) {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("Game already running"))
+                }
+            }
         }
     }
 
