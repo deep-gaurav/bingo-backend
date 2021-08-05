@@ -179,14 +179,6 @@ impl GameData {
                     }
                 }
             }
-            while let Some(player) = cycle_iter.next() {
-                if player.player.id == data.turn {
-                    if let Some(next) = cycle_iter.next() {
-                        data.turn = next.player.id.to_string();
-                        break;
-                    }
-                }
-            }
         }
     }
 }
