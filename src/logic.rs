@@ -142,7 +142,7 @@ impl Board {
         &self,
         ctx: &Context<'ctx>,
         room_id: String,
-    ) -> Result<Option<u32>, async_graphql::Error> {
+    ) -> Result<u32, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
         log::info!("Trying to Get read for room board");
         let rooms = data.private_rooms.read().await;
@@ -154,9 +154,9 @@ impl Board {
             .ok_or("Not game")?
             .game_state;
         match state{
-            GameState::BoardCreation(_) => Ok(None),
+            GameState::BoardCreation(_) => Ok(0),
             GameState::GameRunning(state) => Ok(
-                Some(self.get_score(&state.selected_numbers))
+                self.get_score(&state.selected_numbers)
             ),
         }
     }
