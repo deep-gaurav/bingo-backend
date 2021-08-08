@@ -48,6 +48,7 @@ impl Room {
                     player,
                     send_channel: None,
                 }],
+                last_game:None,
             }),
         }
     }
@@ -169,9 +170,10 @@ impl RoomState {
     }
 }
 
-#[derive(Debug, SimpleObject, Serialize, Clone)]
+#[derive( SimpleObject, Serialize, Clone)]
 pub struct LobbyData {
     pub players: Vec<LobbyPlayer>,
+    pub last_game: Option<GameData>
 }
 
 #[derive(Debug, SimpleObject, Serialize, Clone)]
