@@ -73,16 +73,23 @@ impl MutationRoot {
         room_id: String,
     ) -> Result<String, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
-        let mut rooms = data.private_rooms.write().await;
-        let room = rooms
-            .get_mut(&room_id)
-            .ok_or(async_graphql::Error::from("Room does not exist"))?;
         let player = Player {
             id: player_id,
             name: player_name,
         };
-        room.state.add_player(player.clone())?;
-        room.state
+        let room = {
+            let mut rooms = data.private_rooms.write().await;
+
+            let room = rooms
+                .get_mut(&room_id)
+                .ok_or(async_graphql::Error::from("Room does not exist"))?;
+
+            room.state.add_player(player.clone())?;
+            room.clone()
+        };
+
+        room.clone()
+            .state
             .broadcast(ServerResponse::PlayerJoined(PlayerJoined {
                 player,
 
@@ -107,17 +114,21 @@ impl Subscription {
         let (tx, rx) = channel::<ServerResponse>(2);
 
         let data = ctx.data::<Storage>()?;
-        let mut rooms = data.private_rooms.write().await;
-        let room = rooms
-            .get_mut(&room_id)
-            .ok_or(async_graphql::Error::from("Room does not exist"))?;
+        let room = {
+            let mut rooms = data.private_rooms.write().await;
+            let room = rooms
+                .get_mut(&room_id)
+                .ok_or(async_graphql::Error::from("Room does not exist"))?;
+            room.state.set_player_channel(player_id.clone(), tx)?;
+            room.clone()
+        };
         let player = room
             .state
             .get_player(&player_id)
             .ok_or("Player not found ")?
             .clone();
-        room.state.set_player_channel(player_id, tx)?;
-        room.state
+        room.clone()
+            .state
             .broadcast(ServerResponse::PlayerConnected(PlayerConnected {
                 player: player.clone(),
 
@@ -146,44 +157,52 @@ impl Drop for PlayerDisconnected {
         let rooms = self.rooms.clone();
         let room_id = self.room_id.clone();
         let player = self.player.clone();
-
         tokio::spawn(async move {
-            log::info!("Taking room to remove player {:#?}", player);
-            let mut rooms = rooms.write().await;
-            log::info!("Removing player {:#?}", player);
-            let mut remove = false;
-            if let Some(room) = rooms.get_mut(&room_id) {
-                if let Err(er) = room.state.remove_player(&player.id) {
-                    log::warn!("Could not remove player {:#?}", er)
-                } else {
-                    log::info!("Player removed {:#?}", player);
+            {
+                log::info!("Taking room to remove player {:#?}", player);
+                let mut rooms = rooms.write().await;
+                log::info!("Removing player {:#?}", player);
+                let mut remove = false;
+                if let Some(room) = rooms.get_mut(&room_id) {
+                    if let Err(er) = room.state.remove_player(&player.id) {
+                        log::warn!("Could not remove player {:#?}", er)
+                    } else {
+                        log::info!("Player removed {:#?}", player);
+                    }
+                    if room.state.is_empty() {
+                        remove = true;
+                    } else {
+                        log::info!("Sending broadcast PlayerLeft {:#?}", player);
+
+                        log::info!("Updating Turn");
+
+                        if let RoomState::Game(data) = &mut room.state {
+                            if let GameState::GameRunning(running_data) = &data.game_state {
+                                if running_data.turn == player.id {
+                                    data.change_turn();
+                                }
+                            }
+                        }
+
+                        log::info!("Turn Updated")
+                    }
                 }
-                if room.state.is_empty() {
-                    remove = true;
-                } else {
-                    log::info!("Sending broadcast PlayerLeft {:#?}", player);
-                    room.state
+                if remove {
+                    rooms.remove(&room_id);
+                    log::info!("Deleting room {:#?}", room_id);
+                }
+            }
+            {
+                let rooms = rooms.read().await;
+                if let Some(room) = rooms.get(&room_id) {
+                    room.clone()
+                        .state
                         .broadcast(ServerResponse::PlayerLeft(PlayerLeft {
                             player: player.clone(),
                             room: room.clone(),
                         }))
                         .await;
-                    log::info!("Updating Turn");
-
-                    if let RoomState::Game(data) = &mut room.state {
-                        if let GameState::GameRunning(running_data) = &data.game_state {
-                            if running_data.turn == player.id {
-                                data.change_turn();
-                            }
-                        }
-                    }
-
-                    log::info!("Turn Updated")
                 }
-            }
-            if remove {
-                rooms.remove(&room_id);
-                log::info!("Deleting room {:#?}", room_id);
             }
         });
     }

@@ -41,13 +41,27 @@ impl PlayerHandler {
         ctx: &Context<'ctx>,
         board_size: u16,
     ) -> Result<bool, async_graphql::Error> {
-        let data = ctx.data::<Storage>()?;
-        let mut rooms = data.private_rooms.write().await;
-        let room = rooms
-            .get_mut(&self.room_id)
-            .ok_or(async_graphql::Error::from("Room does not exis"))?;
-        room.handle_player_message(&self.player_id, PlayerEvents::StartGame(board_size))
-            .await?;
+        let room = {
+            let data = ctx.data::<Storage>()?;
+
+            let mut rooms = data.private_rooms.write().await;
+            let room = rooms
+                .get_mut(&self.room_id)
+                .ok_or(async_graphql::Error::from("Room does not exis"))?;
+            room.handle_player_message(&self.player_id, PlayerEvents::StartGame(board_size))
+                .await?;
+            room.clone()
+        };
+
+        room.clone()
+            .state
+            .broadcast(ServerResponse::GameMessage(GameMessage {
+                event: GameEvents::GameStarted(GameStarted {
+                    game_state: room.state.as_game().ok_or("Not game")?.game_state.clone(),
+                }),
+                room: room.clone(),
+            }))
+            .await;
         Ok(true)
     }
 
@@ -57,21 +71,33 @@ impl PlayerHandler {
         board: Vec<Vec<u32>>,
     ) -> Result<bool, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
-        let mut rooms = data.private_rooms.write().await;
-        let room = rooms
-            .get_mut(&self.room_id)
-            .ok_or(async_graphql::Error::from("Room does not exis"))?;
-        let board_size = room
-            .state
-            .as_game()
-            .ok_or(async_graphql::Error::from("Game not running"))?
-            .board_size;
+        let room = {
+            let mut rooms = data.private_rooms.write().await;
 
-        room.handle_player_message(
-            &self.player_id,
-            PlayerEvents::ReadyBoard(Board::new(board, board_size)?),
-        )
-        .await?;
+            let room = rooms
+                .get_mut(&self.room_id)
+                .ok_or(async_graphql::Error::from("Room does not exis"))?;
+            let board_size = room
+                .state
+                .as_game()
+                .ok_or(async_graphql::Error::from("Game not running"))?
+                .board_size;
+
+            room.handle_player_message(
+                &self.player_id,
+                PlayerEvents::ReadyBoard(Board::new(board, board_size)?),
+            )
+            .await?;
+            room.clone()
+        };
+
+        room.clone()
+            .state
+            .broadcast(ServerResponse::GameMessage(GameMessage {
+                event: GameEvents::RoomUpdate(RoomUpdate { room: room.clone() }),
+                room: room.clone(),
+            }))
+            .await;
         Ok(true)
     }
 
@@ -81,12 +107,24 @@ impl PlayerHandler {
         number: u32,
     ) -> Result<bool, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
-        let mut rooms = data.private_rooms.write().await;
-        let room = rooms
-            .get_mut(&self.room_id)
-            .ok_or(async_graphql::Error::from("Room does not exis"))?;
-        room.handle_player_message(&self.player_id, PlayerEvents::Move(number))
-            .await?;
+        let room = {
+            let mut rooms = data.private_rooms.write().await;
+
+            let room = rooms
+                .get_mut(&self.room_id)
+                .ok_or(async_graphql::Error::from("Room does not exis"))?;
+            room.handle_player_message(&self.player_id, PlayerEvents::Move(number))
+                .await?;
+            room.clone()
+        };
+
+        room.clone()
+            .state
+            .broadcast(ServerResponse::GameMessage(GameMessage {
+                event: GameEvents::RoomUpdate(RoomUpdate { room: room.clone() }),
+                room: room.clone(),
+            }))
+            .await;
         Ok(true)
     }
 }
@@ -100,15 +138,24 @@ pub struct Board {
 
 #[ComplexObject]
 impl Board {
-    pub async fn score<'ctx>(&self,ctx: &Context<'ctx>,room_id:String)->Result<u32,async_graphql::Error>{
+    pub async fn score<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+        room_id: String,
+    ) -> Result<u32, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
         let rooms = data.private_rooms.read().await;
         let room = rooms.get(&room_id).ok_or("Room Not found")?;
-        let selected_numbers = room.state.as_game().ok_or("Not game")?.game_state.as_game_running().ok_or("Game not running")?;
+        let selected_numbers = room
+            .state
+            .as_game()
+            .ok_or("Not game")?
+            .game_state
+            .as_game_running()
+            .ok_or("Game not running")?;
         Ok(self.get_score(&selected_numbers.selected_numbers))
     }
 }
-
 
 impl Board {
     pub fn new(numbers: Vec<Vec<Cell>>, board_size: u16) -> Result<Self, anyhow::Error> {
@@ -134,44 +181,44 @@ impl Board {
         }
     }
 
-    pub fn get_score(&self, selected_cells:&Vec<SelectedCell>)->u32{
-       
-        let mut ndarr = Array2::<u32>::default((self.numbers.len(),self.numbers.len()));
+    pub fn get_score(&self, selected_cells: &Vec<SelectedCell>) -> u32 {
+        let mut ndarr = Array2::<u32>::default((self.numbers.len(), self.numbers.len()));
         let n = self.numbers.len();
         for (i, mut row) in ndarr.axis_iter_mut(Axis(0)).enumerate() {
             for (j, col) in row.iter_mut().enumerate() {
                 let val = self.numbers[i][j];
-                if selected_cells.iter().any(|cell|cell.cell_value==val){
+                if selected_cells.iter().any(|cell| cell.cell_value == val) {
                     *col = 0;
-                }else{
+                } else {
                     *col = val;
                 }
             }
         }
         let mut points = 0;
-        for row in ndarr.rows().into_iter().chain(ndarr.columns()){
-            if !row.iter().any(|val|*val!=0){
-                points+=1;
+        for row in ndarr.rows().into_iter().chain(ndarr.columns()) {
+            if !row.iter().any(|val| *val != 0) {
+                points += 1;
             }
         }
 
-
         let d1 = (0..n).zip(0..n);
         let d2 = (0..n).zip((0..n).rev());
-        if !d1.into_iter()
+        if !d1
+            .into_iter()
             .chain(d2)
-        .any(|i|ndarr.get(i).unwrap_or(&0)!=&0){
-            points+=1;
+            .any(|i| ndarr.get(i).unwrap_or(&0) != &0)
+        {
+            points += 1;
         }
         points
     }
 
-    pub fn wining_points(&self)->u32{
+    pub fn wining_points(&self) -> u32 {
         self.numbers.len() as u32
     }
 
-    pub fn max_points(&self)->u32{
-        (self.numbers.len() * 2 +2) as u32
+    pub fn max_points(&self) -> u32 {
+        (self.numbers.len() * 2 + 2) as u32
     }
 }
 
@@ -275,12 +322,6 @@ impl Room {
                         board_size,
                         game_state: game_state.clone(),
                     });
-                    self.state
-                        .broadcast(ServerResponse::GameMessage(GameMessage {
-                            event: GameEvents::GameStarted(GameStarted { game_state }),
-                            room: self.clone(),
-                        }))
-                        .await;
                 }
                 crate::data::RoomState::Game(_) => Err(anyhow::anyhow!("Game Already Started"))?,
             },
@@ -309,14 +350,6 @@ impl Room {
                                         selected_numbers: vec![],
                                     });
                                 }
-                                self.state
-                                    .broadcast(ServerResponse::GameMessage(GameMessage {
-                                        event: GameEvents::RoomUpdate(RoomUpdate {
-                                            room: self.clone(),
-                                        }),
-                                        room: self.clone(),
-                                    }))
-                                    .await;
                             } else {
                                 Err(anyhow::anyhow!("Player not found"))?;
                             }
@@ -343,14 +376,6 @@ impl Room {
                                     cell_value: mov,
                                 });
                                 data.change_turn();
-                                self.state
-                                    .broadcast(ServerResponse::GameMessage(GameMessage {
-                                        event: GameEvents::RoomUpdate(RoomUpdate {
-                                            room: self.clone(),
-                                        }),
-                                        room: self.clone(),
-                                    }))
-                                    .await;
                             }
                         } else {
                             Err(anyhow::anyhow!("Not your turn"))?;

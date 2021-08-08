@@ -134,7 +134,7 @@ impl RoomState {
         }
     }
 
-    pub async fn broadcast(&self, message: ServerResponse) {
+    pub async fn broadcast(self, message: ServerResponse) {
         match self {
             RoomState::Lobby(data) => data.broadcast(message).await,
             RoomState::Game(data) => data.broadcast(message).await,
