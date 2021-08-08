@@ -148,16 +148,10 @@ impl Board {
         let rooms = data.private_rooms.read().await;
         log::info!("Got read for room board");
         let room = rooms.get(&room_id).ok_or("Room Not found")?;
-        let state = &room
-            .state
-            .as_game()
-            .ok_or("Not game")?
-            .game_state;
-        match state{
+        let state = &room.state.as_game().ok_or("Not game")?.game_state;
+        match state {
             GameState::BoardCreation(_) => Ok(0),
-            GameState::GameRunning(state) => Ok(
-                self.get_score(&state.selected_numbers)
-            ),
+            GameState::GameRunning(state) => Ok(self.get_score(&state.selected_numbers)),
         }
     }
 }
@@ -208,11 +202,10 @@ impl Board {
 
         let d1 = (0..n).zip(0..n);
         let d2 = (0..n).zip((0..n).rev());
-        if !d1
-            .into_iter()
-            .chain(d2)
-            .any(|i| ndarr.get(i).unwrap_or(&0) != &0)
-        {
+        if !d1.into_iter().any(|i| ndarr.get(i).unwrap_or(&0) != &0) {
+            points += 1;
+        }
+        if !d2.into_iter().any(|i| ndarr.get(i).unwrap_or(&0) != &0) {
             points += 1;
         }
         points
