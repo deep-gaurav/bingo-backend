@@ -8,5 +8,6 @@ pub fn generate_rand_string(length: usize) -> String {
             .map(char::from)
             .collect()
     };
-    lobbyid
+    lobbyid.to_ascii_uppercase()
 }
+

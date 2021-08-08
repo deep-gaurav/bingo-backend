@@ -142,18 +142,23 @@ impl Board {
         &self,
         ctx: &Context<'ctx>,
         room_id: String,
-    ) -> Result<u32, async_graphql::Error> {
+    ) -> Result<Option<u32>, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
+        log::info!("Trying to Get read for room board");
         let rooms = data.private_rooms.read().await;
+        log::info!("Got read for room board");
         let room = rooms.get(&room_id).ok_or("Room Not found")?;
-        let selected_numbers = room
+        let state = &room
             .state
             .as_game()
             .ok_or("Not game")?
-            .game_state
-            .as_game_running()
-            .ok_or("Game not running")?;
-        Ok(self.get_score(&selected_numbers.selected_numbers))
+            .game_state;
+        match state{
+            GameState::BoardCreation(_) => Ok(None),
+            GameState::GameRunning(state) => Ok(
+                Some(self.get_score(&state.selected_numbers))
+            ),
+        }
     }
 }
 

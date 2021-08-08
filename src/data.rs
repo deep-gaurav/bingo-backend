@@ -141,6 +141,7 @@ impl RoomState {
         }
     }
     pub fn remove_player(&mut self, player_id: &str) -> Result<(), anyhow::Error> {
+        log::info!("Removing player {}",player_id);
         match self {
             RoomState::Lobby(data) => {
                 if let Some(player) = data.players.iter_mut().find(|p| p.player.id == player_id) {
