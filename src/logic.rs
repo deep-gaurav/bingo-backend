@@ -4,7 +4,7 @@ use async_graphql::*;
 use ndarray::{Array2, Axis};
 use serde::Serialize;
 
-use crate::data::{GameMessage, Player, Room, RoomState, ServerResponse, Storage};
+use crate::data::{GameMessage, Player, Rank, Room, RoomState, ServerResponse, Storage};
 use tokio::sync::mpsc::Sender;
 
 #[derive(Serialize, Union, Clone)]
@@ -180,7 +180,7 @@ impl Board {
         }
     }
 
-    pub fn get_score(&self, selected_cells: &Vec<SelectedCell>) -> u32 {
+    pub fn get_score(&self, selected_cells: &[SelectedCell]) -> u32 {
         let mut ndarr = Array2::<u32>::default((self.numbers.len(), self.numbers.len()));
         let n = self.numbers.len();
         for (i, mut row) in ndarr.axis_iter_mut(Axis(0)).enumerate() {
@@ -213,6 +213,10 @@ impl Board {
 
     pub fn wining_points(&self) -> u32 {
         self.numbers.len() as u32
+    }
+
+    pub fn has_completed(&self, selected_cells: &Vec<SelectedCell>) -> bool {
+        self.get_score(selected_cells) >= self.wining_points()
     }
 
     pub fn max_points(&self) -> u32 {
@@ -255,25 +259,103 @@ pub struct GameRunning {
 }
 
 #[derive(SimpleObject, Serialize, Clone)]
+#[graphql(complex)]
 pub struct GameData {
     pub players: Vec<GamePlayer>,
     pub board_size: u16,
     pub game_state: GameState,
 }
 
+#[ComplexObject]
 impl GameData {
-    pub fn change_turn(&mut self) {
-        if !self.players.iter().any(|p| p.send_channel.is_some()) {
-            return;
+    pub async fn leaderboard(&self) -> Vec<Rank> {
+        self.get_rankings()
+    }
+}
+
+impl GameData {
+    pub fn get_rankings(&self) -> Vec<Rank> {
+        match &self.game_state {
+            GameState::BoardCreation(_) => vec![],
+            GameState::GameRunning(data) => {
+                let mut player_turn = self.players.iter().map(|p| (0, 0, p)).collect::<Vec<_>>();
+                for l in 0..data.selected_numbers.len() {
+                    let temp_selected_cells = &data.selected_numbers[0..l + 1];
+                    self.players
+                        .iter()
+                        .enumerate()
+                        .for_each(|(player_index, p)| {
+                            let score = p
+                                .board
+                                .as_ref()
+                                .map(|board| board.get_score(temp_selected_cells))
+                                .unwrap_or(0)
+                                .clamp(0, self.board_size as u32);
+                            if player_turn[player_index].0 < score {
+                                player_turn[player_index] = (score, l, player_turn[player_index].2);
+                            }
+                        });
+                }
+                player_turn.sort_by(|p1, p2| {
+                    if p1.0.cmp(&p2.0).is_eq() {
+                        p1.1.cmp(&p2.1)
+                    } else {
+                        p1.0.cmp(&p2.0).reverse()
+                    }
+                });
+                let mut rank = 0;
+                let mut last_p: Option<(u32, usize, &GamePlayer)> = None;
+                player_turn
+                    .into_iter()
+                    .map(|p| {
+                        if let Some(last_player) = last_p {
+                            if last_player.0 > p.0 {
+                                rank += 1;
+                            } else if last_player.1 > p.1 {
+                                rank += 1;
+                            }
+                        } else {
+                            rank += 1;
+                        }
+                        last_p = Some(p);
+                        Rank {
+                            rank,
+                            player: p.2.player.clone(),
+                        }
+                    })
+                    .collect()
+            }
         }
+    }
+
+    pub fn change_turn(&mut self) {
         if let GameState::GameRunning(data) = &mut self.game_state {
+            if self
+                .players
+                .iter()
+                .filter(|p| p.send_channel.is_some())
+                .any(|p| {
+                    p.board
+                        .as_ref()
+                        .map(|b| !b.has_completed(&data.selected_numbers))
+                        .unwrap_or(false)
+                })
+            {
+                return;
+            }
             let mut cycle_iter = self.players.iter().cycle();
             let current_player_position =
                 self.players.iter().position(|p| p.player.id == data.turn);
             if let Some(position) = current_player_position {
                 cycle_iter.nth(position);
                 while let Some(player) = cycle_iter.next() {
-                    if player.send_channel.is_some() {
+                    if player.send_channel.is_some()
+                        && player
+                            .board
+                            .as_ref()
+                            .map(|b| b.has_completed(&data.selected_numbers))
+                            .unwrap_or(false)
+                    {
                         data.turn = player.player.id.to_string();
                         break;
                     }

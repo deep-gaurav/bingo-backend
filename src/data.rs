@@ -186,7 +186,10 @@ impl RoomState {
 
                 *self = Self::Lobby(LobbyData {
                     players: lobby_player,
-                    last_game: Some(data.clone()),
+                    last_game: Some(LastGame {
+                        last_game: data.clone(),
+                        leader_board: data.get_rankings(),
+                    }),
                 })
             }
         }
@@ -196,7 +199,18 @@ impl RoomState {
 #[derive(SimpleObject, Serialize, Clone)]
 pub struct LobbyData {
     pub players: Vec<LobbyPlayer>,
-    pub last_game: Option<GameData>,
+    pub last_game: Option<LastGame>,
+}
+#[derive(SimpleObject, Serialize, Clone)]
+pub struct LastGame {
+    last_game: GameData,
+    leader_board: Vec<Rank>,
+}
+
+#[derive(SimpleObject, Serialize, Clone)]
+pub struct Rank {
+    pub rank: u32,
+    pub player: Player,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Clone)]
