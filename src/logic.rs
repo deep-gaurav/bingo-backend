@@ -330,7 +330,7 @@ impl GameData {
 
     pub fn change_turn(&mut self) {
         if let GameState::GameRunning(data) = &mut self.game_state {
-            if self
+            if !self
                 .players
                 .iter()
                 .filter(|p| p.send_channel.is_some())
