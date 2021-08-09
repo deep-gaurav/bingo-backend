@@ -281,6 +281,30 @@ impl GameData {
             }
         }
     }
+
+    pub fn is_game_end(&self) -> bool {
+        if let Some(game_running) = self.game_state.as_game_running() {
+            let online_players = self.players.iter().filter(|p| p.send_channel.is_some());
+            if online_players
+                .filter(|p| {
+                    p.board
+                        .as_ref()
+                        .map(|board| {
+                            board.get_score(&game_running.selected_numbers) < self.board_size as u32
+                        })
+                        .unwrap_or(false)
+                })
+                .count()
+                > 1
+            {
+                false
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Serialize, SimpleObject, Clone)]
@@ -382,6 +406,7 @@ impl Room {
                 },
             },
         }
+        self.state.handle_game_end();
         Ok(())
     }
 }

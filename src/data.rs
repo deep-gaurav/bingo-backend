@@ -48,7 +48,7 @@ impl Room {
                     player,
                     send_channel: None,
                 }],
-                last_game:None,
+                last_game: None,
             }),
         }
     }
@@ -141,7 +141,7 @@ impl RoomState {
         }
     }
     pub fn remove_player(&mut self, player_id: &str) -> Result<(), anyhow::Error> {
-        log::info!("Removing player {}",player_id);
+        log::info!("Removing player {}", player_id);
         match self {
             RoomState::Lobby(data) => {
                 if let Some(player) = data.players.iter_mut().find(|p| p.player.id == player_id) {
@@ -169,12 +169,34 @@ impl RoomState {
             None
         }
     }
+
+    pub fn handle_game_end(&mut self) {
+        if let Self::Game(data) = self {
+            if data.is_game_end() {
+                let lobby_player = data
+                    .players
+                    .iter()
+                    .cloned()
+                    .map(|p| LobbyPlayer {
+                        player: p.player,
+                        send_channel: p.send_channel,
+                    })
+                    .collect();
+                data.players.iter_mut().for_each(|p| p.send_channel = None);
+
+                *self = Self::Lobby(LobbyData {
+                    players: lobby_player,
+                    last_game: Some(data.clone()),
+                })
+            }
+        }
+    }
 }
 
-#[derive( SimpleObject, Serialize, Clone)]
+#[derive(SimpleObject, Serialize, Clone)]
 pub struct LobbyData {
     pub players: Vec<LobbyPlayer>,
-    pub last_game: Option<GameData>
+    pub last_game: Option<GameData>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Clone)]

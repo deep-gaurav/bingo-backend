@@ -186,6 +186,8 @@ impl Drop for PlayerDisconnected {
 
                         log::info!("Turn Updated")
                     }
+
+                    room.state.handle_game_end();
                 }
                 if remove {
                     rooms.remove(&room_id);

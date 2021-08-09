@@ -10,4 +10,3 @@ pub fn generate_rand_string(length: usize) -> String {
     };
     lobbyid.to_ascii_uppercase()
 }
-
