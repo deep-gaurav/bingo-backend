@@ -311,7 +311,7 @@ impl GameData {
                         if let Some(last_player) = last_p {
                             if last_player.0 > p.0 {
                                 rank += 1;
-                            } else if last_player.1 > p.1 {
+                            } else if last_player.1 < p.1 {
                                 rank += 1;
                             }
                         } else {
