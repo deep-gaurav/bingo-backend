@@ -353,7 +353,7 @@ impl GameData {
                         && player
                             .board
                             .as_ref()
-                            .map(|b| b.has_completed(&data.selected_numbers))
+                            .map(|b| !b.has_completed(&data.selected_numbers))
                             .unwrap_or(false)
                     {
                         data.turn = player.player.id.to_string();
