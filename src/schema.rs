@@ -116,6 +116,15 @@ impl MutationRoot {
                 .ok_or(async_graphql::Error::from("Room does not exist"))?;
 
             let player = room.state.remove_player(&player_id)?;
+            if let RoomState::Game(data) = &mut room.state {
+                if let GameState::GameRunning(running_data) = &data.game_state {
+                    if running_data.turn == player.id {
+                        data.change_turn();
+                    }
+                }
+            }
+            room.state.handle_game_end();
+
             (room.clone(), player)
         };
 
