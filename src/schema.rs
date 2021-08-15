@@ -10,6 +10,7 @@ use tokio::sync::RwLock;
 use crate::data::PlayerConnected;
 use crate::data::PlayerJoined;
 use crate::data::PlayerLeft;
+use crate::data::PlayerRemoved;
 use crate::data::RoomState;
 use crate::data::ServerResponse;
 use crate::logic::{GameState, PlayerHandler};
@@ -98,6 +99,36 @@ impl MutationRoot {
             .await;
         Ok(room_id)
     }
+
+    pub async fn disconnect<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+        player_id: String,
+        room_id: String,
+    ) -> Result<String, async_graphql::Error> {
+        let data = ctx.data::<Storage>()?;
+
+        let (room, player) = {
+            let mut rooms = data.private_rooms.write().await;
+
+            let room = rooms
+                .get_mut(&room_id)
+                .ok_or(async_graphql::Error::from("Room does not exist"))?;
+
+            let player = room.state.remove_player(&player_id)?;
+            (room.clone(), player)
+        };
+
+        room.clone()
+            .state
+            .broadcast(ServerResponse::PlayerRemoved(PlayerRemoved {
+                player,
+
+                room: room.clone(),
+            }))
+            .await;
+        Ok("Disconnected".into())
+    }
 }
 
 pub struct Subscription;
@@ -164,7 +195,7 @@ impl Drop for PlayerDisconnected {
                 log::info!("Removing player {:#?}", player);
                 let mut remove = false;
                 if let Some(room) = rooms.get_mut(&room_id) {
-                    if let Err(er) = room.state.remove_player(&player.id) {
+                    if let Err(er) = room.state.disconnect_player(&player.id) {
                         log::warn!("Could not remove player {:#?}", er)
                     } else {
                         log::info!("Player removed {:#?}", player);

@@ -1,10 +1,11 @@
-use std::convert::Infallible;
+use std::{collections::HashMap, convert::Infallible, sync::Arc};
 
 use async_graphql::{
     http::{playground_source, GraphQLPlaygroundConfig},
     Schema,
 };
 use async_graphql_warp::{graphql_subscription, Response};
+use tokio::sync::RwLock;
 use warp::http::Response as HttpResponse;
 use warp::Filter;
 
@@ -23,8 +24,11 @@ use crate::{
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
+    let private_rooms = Arc::new(RwLock::new(HashMap::new()));
     let schema = Schema::build(QueryRoot, MutationRoot, Subscription)
-        .data(Storage::default())
+        .data(Storage {
+            private_rooms: private_rooms.clone(),
+        })
         .finish();
 
     let graphql_post = async_graphql_warp::graphql(schema.clone()).and_then(

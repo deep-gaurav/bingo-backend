@@ -140,7 +140,7 @@ impl RoomState {
             RoomState::Game(data) => data.broadcast(message).await,
         }
     }
-    pub fn remove_player(&mut self, player_id: &str) -> Result<(), anyhow::Error> {
+    pub fn disconnect_player(&mut self, player_id: &str) -> Result<(), anyhow::Error> {
         log::info!("Removing player {}", player_id);
         match self {
             RoomState::Lobby(data) => {
@@ -191,6 +191,30 @@ impl RoomState {
                         leader_board: data.get_rankings(),
                     }),
                 })
+            }
+        }
+    }
+
+    pub fn remove_player(&mut self, player_id: &str) -> Result<Player, anyhow::Error> {
+        log::info!("Removing player {}", player_id);
+        match self {
+            RoomState::Lobby(data) => {
+                let p_index = data
+                    .players
+                    .iter()
+                    .position(|p| p.player.id == player_id)
+                    .ok_or(anyhow::anyhow!("Player doesnt exist"))?;
+                let player = data.players.remove(p_index);
+                Ok(player.player)
+            }
+            RoomState::Game(data) => {
+                let p_index = data
+                    .players
+                    .iter()
+                    .position(|p| p.player.id == player_id)
+                    .ok_or(anyhow::anyhow!("Player doesnt exist"))?;
+                let player = data.players.remove(p_index);
+                Ok(player.player)
             }
         }
     }
@@ -311,11 +335,19 @@ pub struct PlayerConnected {
     pub player: Player,
     pub room: Room,
 }
+
+#[derive(SimpleObject, Serialize, Clone)]
+pub struct PlayerRemoved {
+    pub player: Player,
+    pub room: Room,
+}
+
 #[derive(Serialize, Union, Clone)]
 pub enum ServerResponse {
     PlayerJoined(PlayerJoined),
     PlayerConnected(PlayerConnected),
     PlayerLeft(PlayerLeft),
+    PlayerRemoved(PlayerRemoved),
 
     GameMessage(GameMessage),
 }
