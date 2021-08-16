@@ -384,7 +384,17 @@ impl GameData {
                 true
             }
         } else {
-            false
+            if self
+                .players
+                .iter()
+                .filter(|p| p.send_channel.is_some())
+                .count()
+                > 1
+            {
+                false
+            } else {
+                true
+            }
         }
     }
 }
