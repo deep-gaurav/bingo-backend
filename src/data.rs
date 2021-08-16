@@ -186,10 +186,16 @@ impl RoomState {
 
                 *self = Self::Lobby(LobbyData {
                     players: lobby_player,
-                    last_game: Some(LastGame {
-                        last_game: data.clone(),
-                        leader_board: data.get_rankings(),
-                    }),
+                    last_game: {
+                        if data.game_state.is_game_running() {
+                            Some(LastGame {
+                                last_game: data.clone(),
+                                leader_board: data.get_rankings(),
+                            })
+                        } else {
+                            None
+                        }
+                    },
                 })
             }
         }

@@ -245,6 +245,11 @@ impl GameState {
             None
         }
     }
+
+    /// Returns `true` if the game_state is [`GameRunning`].
+    pub fn is_game_running(&self) -> bool {
+        matches!(self, Self::GameRunning(..))
+    }
 }
 
 #[derive(SimpleObject, Serialize, Clone)]
