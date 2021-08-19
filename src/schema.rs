@@ -42,7 +42,7 @@ pub struct MutationRoot;
 impl MutationRoot {
     pub async fn create_lobby<'ctx>(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         player_id: String,
         player_name: String,
     ) -> Result<String, async_graphql::Error> {
@@ -68,7 +68,7 @@ impl MutationRoot {
 
     pub async fn join_lobby<'ctx>(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         player_id: String,
         player_name: String,
         room_id: String,
@@ -83,7 +83,7 @@ impl MutationRoot {
 
             let room = rooms
                 .get_mut(&room_id)
-                .ok_or(async_graphql::Error::from("Room does not exist"))?;
+                .ok_or_else(|| async_graphql::Error::from("Room does not exist"))?;
 
             room.state.add_player(player.clone())?;
             room.clone()
@@ -102,7 +102,7 @@ impl MutationRoot {
 
     pub async fn disconnect<'ctx>(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         player_id: String,
         room_id: String,
     ) -> Result<String, async_graphql::Error> {
@@ -113,7 +113,7 @@ impl MutationRoot {
 
             let room = rooms
                 .get_mut(&room_id)
-                .ok_or(async_graphql::Error::from("Room does not exist"))?;
+                .ok_or_else(|| async_graphql::Error::from("Room does not exist"))?;
 
             let player = room.state.remove_player(&player_id)?;
             if let RoomState::Game(data) = &mut room.state {
@@ -146,7 +146,7 @@ pub struct Subscription;
 impl Subscription {
     async fn server_messages<'ctx>(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
 
         room_id: String,
         player_id: String,
@@ -158,7 +158,7 @@ impl Subscription {
             let mut rooms = data.private_rooms.write().await;
             let room = rooms
                 .get_mut(&room_id)
-                .ok_or(async_graphql::Error::from("Room does not exist"))?;
+                .ok_or_else(|| async_graphql::Error::from("Room does not exist"))?;
             room.state.set_player_channel(player_id.clone(), tx)?;
             room.clone()
         };
@@ -179,7 +179,7 @@ impl Subscription {
             player,
             receiver_stream: rx,
             rooms: ctx.data::<Storage>()?.private_rooms.clone(),
-            room_id: room_id,
+            room_id,
         };
         Ok(player_dis)
     }

@@ -27,13 +27,13 @@ impl Room {
                 .players
                 .iter()
                 .cloned()
-                .map(|p| CommonPlayer::LobbyPlayer(p))
+                .map(CommonPlayer::LobbyPlayer)
                 .collect(),
             RoomState::Game(data) => data
                 .players
                 .iter()
                 .cloned()
-                .map(|p| CommonPlayer::GamePlayer(p))
+                .map(CommonPlayer::GamePlayer)
                 .collect(),
         }
     }
@@ -209,7 +209,7 @@ impl RoomState {
                     .players
                     .iter()
                     .position(|p| p.player.id == player_id)
-                    .ok_or(anyhow::anyhow!("Player doesnt exist"))?;
+                    .ok_or_else(|| anyhow::anyhow!("Player doesnt exist"))?;
                 let player = data.players.remove(p_index);
                 Ok(player.player)
             }
@@ -218,7 +218,7 @@ impl RoomState {
                     .players
                     .iter()
                     .position(|p| p.player.id == player_id)
-                    .ok_or(anyhow::anyhow!("Player doesnt exist"))?;
+                    .ok_or_else(|| anyhow::anyhow!("Player doesnt exist"))?;
                 let player = data.players.remove(p_index);
                 Ok(player.player)
             }

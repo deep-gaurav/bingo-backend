@@ -61,7 +61,7 @@ async fn main() {
         .run((
             [0, 0, 0, 0],
             std::env::var("PORT")
-                .unwrap_or("8000".into())
+                .unwrap_or_else(|_| "8000".into())
                 .parse()
                 .unwrap_or(8000),
         ))

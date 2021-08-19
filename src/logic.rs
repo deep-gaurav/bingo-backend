@@ -38,7 +38,7 @@ pub enum PlayerEvents {
 impl PlayerHandler {
     pub async fn start_game<'ctx>(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         board_size: u16,
     ) -> Result<bool, async_graphql::Error> {
         let room = {
@@ -47,7 +47,7 @@ impl PlayerHandler {
             let mut rooms = data.private_rooms.write().await;
             let room = rooms
                 .get_mut(&self.room_id)
-                .ok_or(async_graphql::Error::from("Room does not exis"))?;
+                .ok_or_else(|| async_graphql::Error::from("Room does not exis"))?;
             room.handle_player_message(&self.player_id, PlayerEvents::StartGame(board_size))
                 .await?;
             room.clone()
@@ -67,7 +67,7 @@ impl PlayerHandler {
 
     pub async fn ready_board<'ctx>(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         board: Vec<Vec<u32>>,
     ) -> Result<bool, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
@@ -76,11 +76,11 @@ impl PlayerHandler {
 
             let room = rooms
                 .get_mut(&self.room_id)
-                .ok_or(async_graphql::Error::from("Room does not exis"))?;
+                .ok_or_else(|| async_graphql::Error::from("Room does not exis"))?;
             let board_size = room
                 .state
                 .as_game()
-                .ok_or(async_graphql::Error::from("Game not running"))?
+                .ok_or_else(|| async_graphql::Error::from("Game not running"))?
                 .board_size;
 
             room.handle_player_message(
@@ -103,7 +103,7 @@ impl PlayerHandler {
 
     pub async fn player_move<'ctx>(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         number: u32,
     ) -> Result<bool, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
@@ -112,7 +112,7 @@ impl PlayerHandler {
 
             let room = rooms
                 .get_mut(&self.room_id)
-                .ok_or(async_graphql::Error::from("Room does not exis"))?;
+                .ok_or_else(|| async_graphql::Error::from("Room does not exis"))?;
             room.handle_player_message(&self.player_id, PlayerEvents::Move(number))
                 .await?;
             room.clone()
@@ -140,7 +140,7 @@ pub struct Board {
 impl Board {
     pub async fn score<'ctx>(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         room_id: String,
     ) -> Result<u32, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
@@ -158,11 +158,7 @@ impl Board {
 
 impl Board {
     pub fn new(numbers: Vec<Vec<Cell>>, board_size: u16) -> Result<Self, anyhow::Error> {
-        let all_num = numbers
-            .clone()
-            .join(&[][..])
-            .into_iter()
-            .collect::<HashSet<_>>();
+        let all_num = numbers.join(&[][..]).into_iter().collect::<HashSet<_>>();
         if all_num.len() == (board_size * board_size) as usize {
             if all_num.iter().min().unwrap_or(&0_u32) < &1_u32
                 || all_num
@@ -215,7 +211,7 @@ impl Board {
         self.numbers.len() as u32
     }
 
-    pub fn has_completed(&self, selected_cells: &Vec<SelectedCell>) -> bool {
+    pub fn has_completed(&self, selected_cells: &[SelectedCell]) -> bool {
         self.get_score(selected_cells) >= self.wining_points()
     }
 
@@ -314,9 +310,7 @@ impl GameData {
                     .into_iter()
                     .map(|p| {
                         if let Some(last_player) = last_p {
-                            if last_player.0 > p.0 {
-                                rank += 1;
-                            } else if last_player.1 < p.1 {
+                            if last_player.0 > p.0 || last_player.1 < p.1 {
                                 rank += 1;
                             }
                         } else {
@@ -353,7 +347,7 @@ impl GameData {
                 self.players.iter().position(|p| p.player.id == data.turn);
             if let Some(position) = current_player_position {
                 cycle_iter.nth(position);
-                while let Some(player) = cycle_iter.next() {
+                for player in cycle_iter {
                     if player.send_channel.is_some()
                         && player
                             .board
@@ -372,7 +366,7 @@ impl GameData {
     pub fn is_game_end(&self) -> bool {
         if let Some(game_running) = self.game_state.as_game_running() {
             let online_players = self.players.iter().filter(|p| p.send_channel.is_some());
-            if online_players
+            online_players
                 .filter(|p| {
                     p.board
                         .as_ref()
@@ -382,24 +376,13 @@ impl GameData {
                         .unwrap_or(false)
                 })
                 .count()
-                > 1
-            {
-                false
-            } else {
-                true
-            }
+                <= 1
         } else {
-            if self
-                .players
+            self.players
                 .iter()
                 .filter(|p| p.send_channel.is_some())
                 .count()
-                > 1
-            {
-                false
-            } else {
-                true
-            }
+                <= 1
         }
     }
 }
@@ -439,56 +422,58 @@ impl Room {
                     self.state = RoomState::Game(GameData {
                         players,
                         board_size,
-                        game_state: game_state.clone(),
+                        game_state,
                     });
                 }
-                crate::data::RoomState::Game(_) => Err(anyhow::anyhow!("Game Already Started"))?,
+                crate::data::RoomState::Game(_) => {
+                    return Err(anyhow::anyhow!("Game Already Started"))
+                }
             },
             PlayerEvents::ReadyBoard(board) => match &mut self.state {
-                RoomState::Lobby(_) => Err(anyhow::anyhow!("Game Not Started"))?,
+                RoomState::Lobby(_) => return Err(anyhow::anyhow!("Game Not Started")),
                 RoomState::Game(data) => match &mut data.game_state {
                     GameState::BoardCreation(board_creation) => {
                         if board_creation.ready.contains(&player_id.to_string()) {
-                            Err(anyhow::anyhow!("Board already set"))?;
-                        } else {
-                            if let Some(player) =
-                                data.players.iter_mut().find(|p| p.player.id == player_id)
-                            {
-                                player.board = Some(board);
+                            return Err(anyhow::anyhow!("Board already set"));
+                        } else if let Some(player) =
+                            data.players.iter_mut().find(|p| p.player.id == player_id)
+                        {
+                            player.board = Some(board);
 
-                                board_creation.ready.push(player_id.into());
-                                if board_creation.ready.len() == data.players.len() {
-                                    data.game_state = GameState::GameRunning(GameRunning {
-                                        turn: data
-                                            .players
-                                            .first()
-                                            .ok_or(anyhow::anyhow!("No player"))?
-                                            .player
-                                            .id
-                                            .clone(),
-                                        selected_numbers: vec![],
-                                    });
-                                }
-                            } else {
-                                Err(anyhow::anyhow!("Player not found"))?;
+                            board_creation.ready.push(player_id.into());
+                            if board_creation.ready.len() == data.players.len() {
+                                data.game_state = GameState::GameRunning(GameRunning {
+                                    turn: data
+                                        .players
+                                        .first()
+                                        .ok_or_else(|| anyhow::anyhow!("No player"))?
+                                        .player
+                                        .id
+                                        .clone(),
+                                    selected_numbers: vec![],
+                                });
                             }
+                        } else {
+                            return Err(anyhow::anyhow!("Player not found"));
                         }
                     }
-                    GameState::GameRunning(_) => Err(anyhow::anyhow!("Game Already Running"))?,
+                    GameState::GameRunning(_) => {
+                        return Err(anyhow::anyhow!("Game Already Running"))
+                    }
                 },
             },
             PlayerEvents::Move(mov) => match &mut self.state {
-                RoomState::Lobby(_) => Err(anyhow::anyhow!("Game Not Started"))?,
+                RoomState::Lobby(_) => return Err(anyhow::anyhow!("Game Not Started")),
                 RoomState::Game(data) => match &mut data.game_state {
-                    GameState::BoardCreation(_) => Err(anyhow::anyhow!("Game Not Running"))?,
+                    GameState::BoardCreation(_) => return Err(anyhow::anyhow!("Game Not Running")),
                     GameState::GameRunning(running_data) => {
-                        if &running_data.turn == player_id {
+                        if running_data.turn == player_id {
                             if running_data
                                 .selected_numbers
                                 .iter()
                                 .any(|c| c.cell_value == mov)
                             {
-                                Err(anyhow::anyhow!("Invalid move"))?;
+                                return Err(anyhow::anyhow!("Invalid move"));
                             } else {
                                 running_data.selected_numbers.push(SelectedCell {
                                     selected_by: player_id.into(),
@@ -497,7 +482,7 @@ impl Room {
                                 data.change_turn();
                             }
                         } else {
-                            Err(anyhow::anyhow!("Not your turn"))?;
+                            return Err(anyhow::anyhow!("Not your turn"));
                         }
                     }
                 },
