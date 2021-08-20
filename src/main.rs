@@ -10,6 +10,7 @@ use warp::http::Response as HttpResponse;
 use warp::Filter;
 
 pub mod data;
+pub mod games;
 pub mod logic;
 pub mod schema;
 pub mod utils;

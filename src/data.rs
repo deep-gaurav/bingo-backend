@@ -5,7 +5,10 @@ use async_trait::async_trait;
 use serde::Serialize;
 use tokio::sync::{mpsc::Sender, RwLock};
 
-use crate::logic::{GameData, GameEvents, GamePlayer};
+use crate::{
+    games::GameTrait,
+    logic::{GameData, GameEvents, GamePlayer},
+};
 
 #[derive(Default)]
 pub struct Storage {
@@ -187,7 +190,7 @@ impl RoomState {
                 *self = Self::Lobby(LobbyData {
                     players: lobby_player,
                     last_game: {
-                        if data.game_state.is_game_running() {
+                        if data.game.is_game_running() {
                             Some(LastGame {
                                 last_game: data.clone(),
                                 leader_board: data.get_rankings(),
