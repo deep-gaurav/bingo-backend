@@ -60,6 +60,7 @@ impl GameData {
 }
 
 #[derive(Serialize, SimpleObject, Clone)]
+#[graphql(complex)]
 pub struct GamePlayer {
     pub player: Player,
     pub data: PlayerGameData,
@@ -67,6 +68,16 @@ pub struct GamePlayer {
     #[serde(skip_serializing)]
     #[graphql(skip)]
     pub send_channel: Option<Sender<ServerResponse>>,
+}
+
+#[ComplexObject]
+impl GamePlayer {
+    pub async fn is_connected<'ctx>(
+        &self,
+        _ctx: &Context<'_>,
+    ) -> Result<bool, async_graphql::Error> {
+        Ok(self.send_channel.is_some())
+    }
 }
 
 ///////////////////////////LOGIC////////////////////////////////

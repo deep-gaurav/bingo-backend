@@ -247,12 +247,23 @@ pub struct Rank {
 }
 
 #[derive(Debug, SimpleObject, Serialize, Clone)]
+#[graphql(complex)]
 pub struct LobbyPlayer {
     pub player: Player,
 
     #[serde(skip_serializing)]
     #[graphql(skip)]
     pub send_channel: Option<Sender<ServerResponse>>,
+}
+
+#[ComplexObject]
+impl LobbyPlayer {
+    pub async fn is_connected<'ctx>(
+        &self,
+        _ctx: &Context<'_>,
+    ) -> Result<bool, async_graphql::Error> {
+        Ok(self.send_channel.is_some())
+    }
 }
 
 impl BroadcastPlayers<GamePlayer> for GameData {
@@ -307,10 +318,6 @@ trait ChannelPlayer {
 
     fn has_channel(&self) -> bool {
         self.get_channel().is_some()
-    }
-
-    async fn is_connected<'ctx>(&self, _ctx: &Context<'ctx>) -> Result<bool, async_graphql::Error> {
-        Ok(self.get_channel().is_some())
     }
 }
 
