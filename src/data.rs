@@ -5,7 +5,10 @@ use async_trait::async_trait;
 use serde::Serialize;
 use tokio::sync::{mpsc::Sender, RwLock};
 
-use crate::logic::{GameData, GameEvents, GamePlayer};
+use crate::{
+    games::GameTrait,
+    logic::{GameData, GameEvents, GamePlayer},
+};
 
 #[derive(Default)]
 pub struct Storage {
@@ -187,7 +190,7 @@ impl RoomState {
                 *self = Self::Lobby(LobbyData {
                     players: lobby_player,
                     last_game: {
-                        if data.game_state.is_game_running() {
+                        if data.game.is_game_running() {
                             Some(LastGame {
                                 last_game: data.clone(),
                                 leader_board: data.get_rankings(),
@@ -244,12 +247,23 @@ pub struct Rank {
 }
 
 #[derive(Debug, SimpleObject, Serialize, Clone)]
+#[graphql(complex)]
 pub struct LobbyPlayer {
     pub player: Player,
 
     #[serde(skip_serializing)]
     #[graphql(skip)]
     pub send_channel: Option<Sender<ServerResponse>>,
+}
+
+#[ComplexObject]
+impl LobbyPlayer {
+    pub async fn is_connected<'ctx>(
+        &self,
+        _ctx: &Context<'_>,
+    ) -> Result<bool, async_graphql::Error> {
+        Ok(self.send_channel.is_some())
+    }
 }
 
 impl BroadcastPlayers<GamePlayer> for GameData {
@@ -304,10 +318,6 @@ trait ChannelPlayer {
 
     fn has_channel(&self) -> bool {
         self.get_channel().is_some()
-    }
-
-    async fn is_connected<'ctx>(&self, _ctx: &Context<'ctx>) -> Result<bool, async_graphql::Error> {
-        Ok(self.get_channel().is_some())
     }
 }
 

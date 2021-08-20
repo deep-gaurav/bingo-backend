@@ -13,7 +13,9 @@ use crate::data::PlayerLeft;
 use crate::data::PlayerRemoved;
 use crate::data::RoomState;
 use crate::data::ServerResponse;
-use crate::logic::{GameState, PlayerHandler};
+use crate::games::Game;
+use crate::games::GameInputs;
+use crate::games::GameTrait;
 use crate::{
     data::{Player, Room, Storage},
     utils::generate_rand_string,
@@ -27,8 +29,8 @@ impl QueryRoot {
         "hello world".to_string()
     }
 
-    pub async fn game_event(&self, player_id: String, room_id: String) -> PlayerHandler {
-        PlayerHandler { player_id, room_id }
+    pub async fn game_event(&self, player_id: String, room_id: String) -> GameInputs {
+        Game::input_handler(room_id, player_id)
     }
 
     pub async fn ping(&self) -> String {
@@ -117,10 +119,8 @@ impl MutationRoot {
 
             let player = room.state.remove_player(&player_id)?;
             if let RoomState::Game(data) = &mut room.state {
-                if let GameState::GameRunning(running_data) = &data.game_state {
-                    if running_data.turn == player.id {
-                        data.change_turn();
-                    }
+                if data.game.can_change_turn(&player.id) {
+                    data.change_turn();
                 }
             }
             room.state.handle_game_end();
@@ -217,10 +217,8 @@ impl Drop for PlayerDisconnected {
                         log::info!("Updating Turn");
 
                         if let RoomState::Game(data) = &mut room.state {
-                            if let GameState::GameRunning(running_data) = &data.game_state {
-                                if running_data.turn == player.id {
-                                    data.change_turn();
-                                }
+                            if data.game.can_change_turn(&player.id) {
+                                data.change_turn();
                             }
                         }
 
