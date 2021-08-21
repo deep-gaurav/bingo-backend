@@ -5,7 +5,7 @@ use crate::{
 
 use self::{
     bingo::{Bingo, BingoInputs, BingoPlayerData, BingoPlayerMessages, BingoStart},
-    boxes::{Boxes, BoxesPlayerData, BoxesPlayerMessages, BoxesStart},
+    boxes::{Boxes, BoxesInputs, BoxesPlayerData, BoxesPlayerMessages, BoxesStart},
 };
 
 use async_graphql::{Context, Object, ObjectType, Union};
@@ -260,6 +260,15 @@ impl GameInputs {
         _ctx: &Context<'_>,
     ) -> Result<BingoInputs, async_graphql::Error> {
         Ok(BingoInputs {
+            room_id: self.room_id.clone(),
+            player_id: self.player_id.clone(),
+        })
+    }
+    pub async fn boxes_inputs<'ctx>(
+        &self,
+        _ctx: &Context<'_>,
+    ) -> Result<BoxesInputs, async_graphql::Error> {
+        Ok(BoxesInputs {
             room_id: self.room_id.clone(),
             player_id: self.player_id.clone(),
         })
