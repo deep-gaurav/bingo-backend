@@ -89,7 +89,7 @@ pub struct BoxesInputs {
     pub player_id: String,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Serialize, SimpleObject)]
 pub struct Cell {
     pub occupied_by: Option<String>,
 }
@@ -106,6 +106,15 @@ impl Boxes {
             .as_slice()
             .ok_or_else(|| "Cant get array".into())
     }
+
+    pub async fn cells(&self) -> Result<Vec<Cell>, async_graphql::Error> {
+        Ok(self
+            .get_cells()
+            .as_slice()
+            .ok_or("Cant get array")?
+            .to_vec())
+    }
+
     pub async fn turn(&self) -> &str {
         &self.turn
     }
