@@ -6,7 +6,7 @@ use ndarray::{Array2, Axis};
 use serde::Serialize;
 
 use crate::{
-    data::{GameMessage, Rank, ServerResponse, Storage},
+    data::{GameMessage, Player, Rank, ServerResponse, Storage},
     logic::{GameEvents, GamePlayer, GameStarted, PlayerEvents, RoomUpdate},
 };
 
@@ -224,18 +224,23 @@ impl GameTrait for Bingo {
         }
     }
 
-    fn start_game(data: Self::StartMessage) -> (Self, Self::PlayerGameData) {
-        (
-            Self {
-                board_size: data.board_size,
-                game_state: GameState::BoardCreation(BoardCreation { ready: vec![] }),
-            },
-            BingoPlayerData { board: None },
-        )
+    fn start_game(data: Self::StartMessage, _: &[Player], _: &str) -> Bingo {
+        Self {
+            board_size: data.board_size,
+            game_state: GameState::BoardCreation(BoardCreation { ready: vec![] }),
+        }
     }
 
     fn input_handler(room_id: String, player_id: String) -> Self::InputHandler {
         BingoInputs { room_id, player_id }
+    }
+
+    fn create_player_data(
+        _data: &Self::StartMessage,
+        _players: &[Player],
+        _player_id: &str,
+    ) -> Self::PlayerGameData {
+        BingoPlayerData { board: None }
     }
 }
 

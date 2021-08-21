@@ -169,6 +169,7 @@ dependencies = [
  "async-graphql",
  "async-graphql-warp",
  "async-trait",
+ "colors-transform",
  "fn-error-context",
  "futures",
  "futures-core",
@@ -255,6 +256,12 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "colors-transform"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9226dbc05df4fb986f48d730b001532580883c4c06c5d1c213f4b34c1c157178"
 
 [[package]]
 name = "convert_case"
@@ -847,6 +854,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "rawpointer",
+ "serde",
 ]
 
 [[package]]

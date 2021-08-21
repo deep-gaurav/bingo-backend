@@ -91,17 +91,23 @@ impl Room {
         match player_message {
             PlayerEvents::StartGame(start_message) => match &self.state {
                 crate::data::RoomState::Lobby(data) => {
-                    let (game, player_data) = Game::start_game(start_message);
+                    let pplayers = data
+                        .players
+                        .iter()
+                        .map(|p| p.player.clone())
+                        .collect::<Vec<_>>();
                     let players = data
                         .players
                         .iter()
                         .cloned()
                         .map(|p| GamePlayer {
+                            data: Game::create_player_data(&start_message, &pplayers, &p.player.id),
                             player: p.player,
-                            data: player_data.clone(),
+
                             send_channel: p.send_channel,
                         })
                         .collect::<Vec<_>>();
+                    let game = Game::start_game(start_message, &pplayers, player_id);
                     self.state = RoomState::Game(GameData { players, game });
                 }
                 crate::data::RoomState::Game(_) => {

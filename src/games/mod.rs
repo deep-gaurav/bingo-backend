@@ -1,24 +1,34 @@
-use crate::{data::Rank, logic::GamePlayer};
+use crate::{
+    data::{Player, Rank},
+    logic::GamePlayer,
+};
 
-use self::bingo::{Bingo, BingoInputs, BingoPlayerData, BingoPlayerMessages, BingoStart};
+use self::{
+    bingo::{Bingo, BingoInputs, BingoPlayerData, BingoPlayerMessages, BingoStart},
+    boxes::{Boxes, BoxesPlayerData, BoxesPlayerMessages, BoxesStart},
+};
 
 use async_graphql::{Context, Object, ObjectType, Union};
 
 use serde::Serialize;
 
 pub mod bingo;
+pub mod boxes;
 
 #[derive(Clone, Serialize, Union)]
 pub enum Game {
     Bingo(Bingo),
+    Boxes(Boxes),
 }
 
 pub enum PlayerMessages {
     BingoMessages(BingoPlayerMessages),
+    BoxesPlayerMessages(BoxesPlayerMessages),
 }
 
 pub enum StartMessages {
     BingoStart(BingoStart),
+    BoxesStart(BoxesStart),
 }
 
 impl PlayerMessages {
@@ -37,11 +47,35 @@ impl PlayerMessages {
             Err(self)
         }
     }
+
+    pub fn as_boxes_player_messages(&self) -> Option<&BoxesPlayerMessages> {
+        if let Self::BoxesPlayerMessages(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn try_into_boxes_player_messages(self) -> Result<BoxesPlayerMessages, Self> {
+        if let Self::BoxesPlayerMessages(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
 }
 
 impl Game {
     pub fn as_bingo(&self) -> Option<&Bingo> {
         if let Self::Bingo(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_boxes(&self) -> Option<&Boxes> {
+        if let Self::Boxes(v) = self {
             Some(v)
         } else {
             None
@@ -70,7 +104,12 @@ where
         message: Self::PlayerMessage,
     ) -> Result<(), anyhow::Error>;
     fn is_game_end(&self, players: &[GamePlayer]) -> bool;
-    fn start_game(data: Self::StartMessage) -> (Self, Self::PlayerGameData);
+    fn start_game(data: Self::StartMessage, players: &[Player], player_id: &str) -> Self;
+    fn create_player_data(
+        data: &Self::StartMessage,
+        players: &[Player],
+        player_id: &str,
+    ) -> Self::PlayerGameData;
     fn input_handler(room_id: String, player_id: String) -> Self::InputHandler;
 }
 
@@ -83,30 +122,35 @@ impl GameTrait for Game {
     fn is_game_running(&self) -> bool {
         match self {
             Game::Bingo(b) => b.is_game_running(),
+            Game::Boxes(b) => b.is_game_running(),
         }
     }
 
     fn can_change_turn(&self, player_id: &str) -> bool {
         match self {
             Game::Bingo(b) => b.can_change_turn(player_id),
+            Game::Boxes(b) => b.can_change_turn(player_id),
         }
     }
 
     fn get_rankings(&self, players: &[GamePlayer]) -> Vec<Rank> {
         match self {
             Game::Bingo(b) => b.get_rankings(players),
+            Game::Boxes(b) => b.get_rankings(players),
         }
     }
 
     fn get_next_turn_player(&self, players: &[GamePlayer]) -> Option<String> {
         match self {
             Game::Bingo(b) => b.get_next_turn_player(players),
+            Game::Boxes(b) => b.get_next_turn_player(players),
         }
     }
 
     fn change_turn(&mut self, player_id: &str) {
         match self {
             Game::Bingo(b) => b.change_turn(player_id),
+            Game::Boxes(b) => b.change_turn(player_id),
         }
     }
 
@@ -124,23 +168,31 @@ impl GameTrait for Game {
                     Err(anyhow::anyhow!("Not Bingo message"))
                 }
             }
+            Game::Boxes(b) => {
+                if let Ok(message) = message.try_into_boxes_player_messages() {
+                    b.handle_player_message(player_id, players, message)
+                } else {
+                    Err(anyhow::anyhow!("Not Boxes message"))
+                }
+            }
         }
     }
 
     fn is_game_end(&self, players: &[GamePlayer]) -> bool {
         match self {
             Game::Bingo(b) => b.is_game_end(players),
+
+            Game::Boxes(b) => b.is_game_end(players),
         }
     }
 
-    fn start_game(data: Self::StartMessage) -> (Self, Self::PlayerGameData) {
+    fn start_game(data: Self::StartMessage, players: &[Player], player_id: &str) -> Self {
         match data {
             StartMessages::BingoStart(data) => {
-                let bingostart = Bingo::start_game(data);
-                (
-                    Self::Bingo(bingostart.0),
-                    PlayerGameData::BingoPlayerData(bingostart.1),
-                )
+                Game::Bingo(Bingo::start_game(data, players, player_id))
+            }
+            StartMessages::BoxesStart(data) => {
+                Game::Boxes(Boxes::start_game(data, players, player_id))
             }
         }
     }
@@ -148,11 +200,27 @@ impl GameTrait for Game {
     fn input_handler(room_id: String, player_id: String) -> Self::InputHandler {
         GameInputs { room_id, player_id }
     }
+
+    fn create_player_data(
+        data: &Self::StartMessage,
+        players: &[Player],
+        player_id: &str,
+    ) -> Self::PlayerGameData {
+        match data {
+            StartMessages::BingoStart(data) => {
+                PlayerGameData::BingoPlayerData(Bingo::create_player_data(data, players, player_id))
+            }
+            StartMessages::BoxesStart(data) => {
+                PlayerGameData::BoxesPlayerData(Boxes::create_player_data(data, players, player_id))
+            }
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Union)]
 pub enum PlayerGameData {
     BingoPlayerData(BingoPlayerData),
+    BoxesPlayerData(BoxesPlayerData),
 }
 
 impl PlayerGameData {
@@ -170,6 +238,14 @@ impl PlayerGameData {
             None
         }
     }
+
+    pub fn as_boxes_player_data(&self) -> Option<&BoxesPlayerData> {
+        if let Self::BoxesPlayerData(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 pub struct GameInputs {
@@ -181,7 +257,7 @@ pub struct GameInputs {
 impl GameInputs {
     pub async fn bingo_inputs<'ctx>(
         &self,
-        ctx: &Context<'_>,
+        _ctx: &Context<'_>,
     ) -> Result<BingoInputs, async_graphql::Error> {
         Ok(BingoInputs {
             room_id: self.room_id.clone(),
