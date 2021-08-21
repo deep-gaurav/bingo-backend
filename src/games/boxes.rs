@@ -168,22 +168,22 @@ impl Boxes {
                                 .cmp(&b.as_occupied().unwrap().mov_no)
                         }
                     });
-                    cells.get_mut((i, j)).replace(&mut Cell {
-                        occupied_by: Some(
-                            edges
-                                .iter()
-                                .last()
-                                .unwrap()
-                                .as_occupied()
-                                .unwrap()
-                                .occupied_by
-                                .clone(),
-                        ),
-                    });
-                } else {
-                    cells
-                        .get_mut((i, j))
-                        .replace(&mut Cell { occupied_by: None });
+                    if let Some(cell_val) = cells.get_mut((i, j)) {
+                        *cell_val = Cell {
+                            occupied_by: Some(
+                                edges
+                                    .iter()
+                                    .last()
+                                    .unwrap()
+                                    .as_occupied()
+                                    .unwrap()
+                                    .occupied_by
+                                    .clone(),
+                            ),
+                        };
+                    }
+                } else if let Some(cell) = cells.get_mut((i, j)) {
+                    *cell = Cell { occupied_by: None }
                 }
             }
         }
