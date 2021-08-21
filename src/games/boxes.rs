@@ -379,7 +379,7 @@ impl GameTrait for Boxes {
             .unwrap_or_default();
         let max_players = players.len();
         let c = (player_idx * 360) as f32 / (max_players as f32);
-        let color = colors_transform::Hsl::from(c, 100.0, 100.0);
+        let color = colors_transform::Hsl::from(c, 100.0, 50.0);
         BoxesPlayerData {
             color: color.to_rgb().to_css_hex_string(),
         }
