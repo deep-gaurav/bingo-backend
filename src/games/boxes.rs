@@ -115,6 +115,14 @@ impl Boxes {
             .to_vec())
     }
 
+    pub async fn width(&self) -> usize {
+        self.horizontal_edges.rows().into_iter().len()
+    }
+
+    pub async fn height(&self) -> usize {
+        self.vertical_edges.columns().into_iter().len()
+    }
+
     pub async fn turn(&self) -> &str {
         &self.turn
     }
