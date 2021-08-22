@@ -130,8 +130,8 @@ impl Boxes {
 
 impl Boxes {
     pub fn get_cells(&self) -> Array2<Cell> {
-        let width = self.horizontal_edges.rows().into_iter().len();
-        let height = self.vertical_edges.columns().into_iter().len();
+        let height = self.horizontal_edges.rows().into_iter().len();
+        let width = self.vertical_edges.columns().into_iter().len();
         let mut cells = Array2::<Cell>::default((width, height));
         for i in 0..height {
             for j in 0..width {
