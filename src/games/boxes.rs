@@ -345,7 +345,7 @@ impl GameTrait for Boxes {
     }
 
     fn is_game_end(&self, players: &[GamePlayer]) -> bool {
-        players.iter().all(|p| p.send_channel.is_none())
+        players.iter().filter(|p| p.send_channel.is_some()).count() <= 1
             || self
                 .get_cells()
                 .iter()
