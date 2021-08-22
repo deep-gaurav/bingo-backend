@@ -354,14 +354,14 @@ impl GameTrait for Boxes {
 
     fn start_game(data: Self::StartMessage, players: &[Player], _player_id: &str) -> Self {
         let mut id = 0;
-        let horizontal_edges = Array2::<EdgeType>::from_shape_fn(
+        let vertical_edges = Array2::<EdgeType>::from_shape_fn(
             (data.board_height as usize, (data.board_width + 1) as usize),
             |_| {
                 id += 1;
                 EdgeType::Unoccupied(Unoccupied { id })
             },
         );
-        let vertical_edges = Array2::<EdgeType>::from_shape_fn(
+        let horizontal_edges = Array2::<EdgeType>::from_shape_fn(
             ((data.board_height + 1) as usize, data.board_width as usize),
             |_| {
                 id += 1;
