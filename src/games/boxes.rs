@@ -116,11 +116,11 @@ impl Boxes {
     }
 
     pub async fn width(&self) -> usize {
-        self.horizontal_edges.rows().into_iter().len()
+        self.vertical_edges.columns().into_iter().len()
     }
 
     pub async fn height(&self) -> usize {
-        self.vertical_edges.columns().into_iter().len()
+        self.horizontal_edges.rows().into_iter().len()
     }
 
     pub async fn turn(&self) -> &str {
@@ -132,7 +132,7 @@ impl Boxes {
     pub fn get_cells(&self) -> Array2<Cell> {
         let height = self.horizontal_edges.rows().into_iter().len();
         let width = self.vertical_edges.columns().into_iter().len();
-        let mut cells = Array2::<Cell>::default((width, height));
+        let mut cells = Array2::<Cell>::default((height, width));
         for i in 0..height {
             for j in 0..width {
                 let left = self
@@ -355,14 +355,14 @@ impl GameTrait for Boxes {
     fn start_game(data: Self::StartMessage, players: &[Player], _player_id: &str) -> Self {
         let mut id = 0;
         let horizontal_edges = Array2::<EdgeType>::from_shape_fn(
-            (data.board_width as usize, (data.board_height + 1) as usize),
+            (data.board_height as usize, (data.board_width + 1) as usize),
             |_| {
                 id += 1;
                 EdgeType::Unoccupied(Unoccupied { id })
             },
         );
         let vertical_edges = Array2::<EdgeType>::from_shape_fn(
-            ((data.board_width + 1) as usize, data.board_height as usize),
+            ((data.board_height + 1) as usize, data.board_width as usize),
             |_| {
                 id += 1;
                 EdgeType::Unoccupied(Unoccupied { id })
