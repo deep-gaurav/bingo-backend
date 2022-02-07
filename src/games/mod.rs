@@ -5,7 +5,7 @@ use crate::{
 
 use self::{
     bingo::{Bingo, BingoInputs, BingoPlayerData, BingoPlayerMessages, BingoStart},
-    bluff::{Bluff, BluffPlayerData, BluffPlayerMessages, StartBluff},
+    bluff::{Bluff, BluffPlayerData, BluffPlayerMessages, StartBluff, BluffInputs},
     boxes::{Boxes, BoxesInputs, BoxesPlayerData, BoxesPlayerMessages, BoxesStart},
 };
 
@@ -319,6 +319,17 @@ impl GameInputs {
         _ctx: &Context<'_>,
     ) -> Result<BoxesInputs, async_graphql::Error> {
         Ok(BoxesInputs {
+            room_id: self.room_id.clone(),
+            player_id: self.player_id.clone(),
+        })
+    }
+
+
+    pub async fn bluff_inputs<'ctx>(
+        &self,
+        _ctx: &Context<'_>,
+    ) -> Result<BluffInputs, async_graphql::Error> {
+        Ok(BluffInputs {
             room_id: self.room_id.clone(),
             player_id: self.player_id.clone(),
         })

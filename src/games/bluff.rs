@@ -200,6 +200,9 @@ impl GameTrait for Bluff {
                 Ok(())
             },
             BluffPlayerMessages::Deal(cards,claim) => {
+                if self.turn != player_id {
+                    return Err(anyhow::anyhow!("Not your Turn"));
+                }
                 if let Some(claimed_previously)=& self.claimed{
                     if claimed_previously!=&claim{
                         return Err(anyhow::anyhow!("Cant claim another card in middle of round"))
@@ -219,12 +222,18 @@ impl GameTrait for Bluff {
                 Ok(())
             },
             BluffPlayerMessages::Pass => {
+                if self.turn != player_id {
+                    return Err(anyhow::anyhow!("Not your Turn"));
+                }
                 if let Some(player) = self.get_next_turn_player(players){
                     self.can_change_turn(&player);
                 }
                 Ok(())
             },
             BluffPlayerMessages::Flip => {
+                if self.turn != player_id {
+                    return Err(anyhow::anyhow!("Not your Turn"));
+                }
                 let mut to_transfer = None;
                 if let Some(last_cards) = self.centered_card.last(){
                     if let Some(claimed) = &self.claimed {
@@ -513,6 +522,14 @@ impl Bluff{
 
     pub async fn centered_card(&self)->Vec<Vec<Card>>{
         self.centered_card.clone()
+    }
+
+    pub async fn turn(&self)->String {
+        self.turn.clone()
+    }
+
+    pub async fn round_player(&self)->String {
+        self.turn_start.clone()
     }
 
 }
