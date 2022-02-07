@@ -18,7 +18,7 @@ pub struct Bluff {
 
 }
 
-#[derive(Clone, Serialize, PartialEq,Eq, SimpleObject)]
+#[derive(Clone, Serialize, PartialEq,Eq, SimpleObject,Debug)]
 pub struct Card {
     number: CardNum,
     color: CardColor,
@@ -65,7 +65,7 @@ impl From<u8> for Card {
     }
 }
 
-#[derive(Clone, Serialize, Copy, PartialEq, Eq, Enum)]
+#[derive(Clone, Serialize, Copy, PartialEq, Eq, Enum,Debug)]
 pub enum CardColor {
     Spade,
     Heart,
@@ -73,7 +73,7 @@ pub enum CardColor {
     Diamond,
 }
 
-#[derive(Clone, Serialize, Copy, PartialEq, Eq, Enum)]
+#[derive(Clone, Serialize, Copy, PartialEq, Eq, Enum,Debug)]
 pub enum CardNum {
     Ace,
     Two,
@@ -281,7 +281,7 @@ impl GameTrait for Bluff {
         let mut rand = rand::rngs::StdRng::seed_from_u64(data.seed);
         for player in players {
             let cards = (0..52).filter(|f| {
-                choosen
+                !choosen
                     .iter()
                     .fold(vec![], |mut acc, i| {
                         acc.append(&mut i.1.clone());
@@ -312,7 +312,7 @@ impl GameTrait for Bluff {
 
     fn start_game(_data: Self::StartMessage, players: &[crate::logic::GamePlayer], player_id: &str) -> Self {
         let cards = (0..52).map(|i|Card::from(i)).filter(|f| {
-            players.iter()
+            !players.iter()
                 .fold(vec![], |mut acc, p| {
                     acc.append(&mut p.data.as_bluff_player_data().unwrap().cards.clone());
                     acc
