@@ -107,7 +107,7 @@ impl Room {
                             send_channel: p.send_channel,
                         })
                         .collect::<Vec<_>>();
-                    let game = Game::start_game(start_message, &pplayers, player_id);
+                    let game = Game::start_game(start_message, &players, player_id);
                     self.state = RoomState::Game(GameData { players, game });
                 }
                 crate::data::RoomState::Game(_) => {

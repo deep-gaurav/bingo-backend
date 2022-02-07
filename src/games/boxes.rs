@@ -352,7 +352,7 @@ impl GameTrait for Boxes {
                 .all(|cell| cell.occupied_by.is_some())
     }
 
-    fn start_game(data: Self::StartMessage, players: &[Player], _player_id: &str) -> Self {
+    fn start_game(data: Self::StartMessage, players: &[GamePlayer], _player_id: &str) -> Self {
         let mut id = 0;
         let horizontal_edges = Array2::<EdgeType>::from_shape_fn(
             (data.board_height as usize, (data.board_width + 1) as usize),
@@ -374,7 +374,7 @@ impl GameTrait for Boxes {
             vertical_edges,
             turn: players
                 .choose(&mut rand::thread_rng())
-                .map(|p| p.id.clone())
+                .map(|p| p.player.id.clone())
                 .unwrap_or_default(),
         };
 

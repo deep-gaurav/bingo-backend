@@ -5,6 +5,7 @@ use crate::{
 
 use self::{
     bingo::{Bingo, BingoInputs, BingoPlayerData, BingoPlayerMessages, BingoStart},
+    bluff::{Bluff, BluffPlayerData, BluffPlayerMessages, StartBluff},
     boxes::{Boxes, BoxesInputs, BoxesPlayerData, BoxesPlayerMessages, BoxesStart},
 };
 
@@ -13,22 +14,26 @@ use async_graphql::{Context, Object, ObjectType, Union};
 use serde::Serialize;
 
 pub mod bingo;
+pub mod bluff;
 pub mod boxes;
 
 #[derive(Clone, Serialize, Union)]
 pub enum Game {
     Bingo(Bingo),
     Boxes(Boxes),
+    Bluff(Bluff),
 }
 
 pub enum PlayerMessages {
     BingoMessages(BingoPlayerMessages),
     BoxesPlayerMessages(BoxesPlayerMessages),
+    BluffPlayerMessages(BluffPlayerMessages),
 }
 
 pub enum StartMessages {
     BingoStart(BingoStart),
     BoxesStart(BoxesStart),
+    BluffStart(StartBluff)
 }
 
 impl PlayerMessages {
@@ -58,6 +63,22 @@ impl PlayerMessages {
 
     pub fn try_into_boxes_player_messages(self) -> Result<BoxesPlayerMessages, Self> {
         if let Self::BoxesPlayerMessages(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn as_bluff_player_messages(&self) -> Option<&BluffPlayerMessages> {
+        if let Self::BluffPlayerMessages(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn try_into_bluff_player_messages(self) -> Result<BluffPlayerMessages, Self> {
+        if let Self::BluffPlayerMessages(v) = self {
             Ok(v)
         } else {
             Err(self)
@@ -104,7 +125,7 @@ where
         message: Self::PlayerMessage,
     ) -> Result<(), anyhow::Error>;
     fn is_game_end(&self, players: &[GamePlayer]) -> bool;
-    fn start_game(data: Self::StartMessage, players: &[Player], player_id: &str) -> Self;
+    fn start_game(data: Self::StartMessage, players: &[GamePlayer], player_id: &str) -> Self;
     fn create_player_data(
         data: &Self::StartMessage,
         players: &[Player],
@@ -123,6 +144,7 @@ impl GameTrait for Game {
         match self {
             Game::Bingo(b) => b.is_game_running(),
             Game::Boxes(b) => b.is_game_running(),
+            Game::Bluff(b) => b.is_game_running(),
         }
     }
 
@@ -130,6 +152,7 @@ impl GameTrait for Game {
         match self {
             Game::Bingo(b) => b.can_change_turn(player_id),
             Game::Boxes(b) => b.can_change_turn(player_id),
+            Game::Bluff(b) => b.can_change_turn(player_id),
         }
     }
 
@@ -137,6 +160,7 @@ impl GameTrait for Game {
         match self {
             Game::Bingo(b) => b.get_rankings(players),
             Game::Boxes(b) => b.get_rankings(players),
+            Game::Bluff(b) => b.get_rankings(players),
         }
     }
 
@@ -144,6 +168,7 @@ impl GameTrait for Game {
         match self {
             Game::Bingo(b) => b.get_next_turn_player(players),
             Game::Boxes(b) => b.get_next_turn_player(players),
+            Game::Bluff(b) => b.get_next_turn_player(players),
         }
     }
 
@@ -151,6 +176,7 @@ impl GameTrait for Game {
         match self {
             Game::Bingo(b) => b.change_turn(player_id),
             Game::Boxes(b) => b.change_turn(player_id),
+            Game::Bluff(b) => b.change_turn(player_id),
         }
     }
 
@@ -175,6 +201,13 @@ impl GameTrait for Game {
                     Err(anyhow::anyhow!("Not Boxes message"))
                 }
             }
+            Game::Bluff(b) => {
+                if let Ok(message) = message.try_into_bluff_player_messages() {
+                    b.handle_player_message(player_id, players, message)
+                } else {
+                    Err(anyhow::anyhow!("Not Bluff message"))
+                }
+            }
         }
     }
 
@@ -183,16 +216,20 @@ impl GameTrait for Game {
             Game::Bingo(b) => b.is_game_end(players),
 
             Game::Boxes(b) => b.is_game_end(players),
+            Game::Bluff(b) => b.is_game_end(players),
         }
     }
 
-    fn start_game(data: Self::StartMessage, players: &[Player], player_id: &str) -> Self {
+    fn start_game(data: Self::StartMessage, players: &[GamePlayer], player_id: &str) -> Self {
         match data {
             StartMessages::BingoStart(data) => {
                 Game::Bingo(Bingo::start_game(data, players, player_id))
             }
             StartMessages::BoxesStart(data) => {
                 Game::Boxes(Boxes::start_game(data, players, player_id))
+            }
+            StartMessages::BluffStart(data) => {
+                Game::Bluff(Bluff::start_game(data, players, player_id))
             }
         }
     }
@@ -213,6 +250,10 @@ impl GameTrait for Game {
             StartMessages::BoxesStart(data) => {
                 PlayerGameData::BoxesPlayerData(Boxes::create_player_data(data, players, player_id))
             }
+
+            StartMessages::BluffStart(data) => {
+                PlayerGameData::BluffPlayerData(Bluff::create_player_data(data, players, player_id))
+            }
         }
     }
 }
@@ -221,6 +262,7 @@ impl GameTrait for Game {
 pub enum PlayerGameData {
     BingoPlayerData(BingoPlayerData),
     BoxesPlayerData(BoxesPlayerData),
+    BluffPlayerData(BluffPlayerData),
 }
 
 impl PlayerGameData {
@@ -241,6 +283,14 @@ impl PlayerGameData {
 
     pub fn as_boxes_player_data(&self) -> Option<&BoxesPlayerData> {
         if let Self::BoxesPlayerData(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_bluff_player_data(&self) -> Option<&BluffPlayerData> {
+        if let Self::BluffPlayerData(v) = self {
             Some(v)
         } else {
             None

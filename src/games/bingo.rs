@@ -224,7 +224,7 @@ impl GameTrait for Bingo {
         }
     }
 
-    fn start_game(data: Self::StartMessage, _: &[Player], _: &str) -> Bingo {
+    fn start_game(data: Self::StartMessage, _: &[GamePlayer], _: &str) -> Bingo {
         Self {
             board_size: data.board_size,
             game_state: GameState::BoardCreation(BoardCreation { ready: vec![] }),
