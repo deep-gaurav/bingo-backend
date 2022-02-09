@@ -250,7 +250,7 @@ impl GameTrait for Bluff {
                 let mut to_transfer = None;
                 if let Some(last_cards) = self.centered_card.last() {
                     if let Some(claimed) = &self.claimed {
-                        if last_cards.1.iter().all(|card| card == claimed) {
+                        if last_cards.1.iter().all(|card| card.number == claimed.number) {
                             to_transfer = Some(player_id.to_string());
                         } else {
                             to_transfer = Some(last_cards.0.clone());
