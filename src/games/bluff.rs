@@ -532,4 +532,8 @@ impl Bluff{
         self.turn_start.clone()
     }
 
+    pub async fn claimed_card(&self)->Option<Card>{
+        self.claimed.clone()
+    }
+
 }
