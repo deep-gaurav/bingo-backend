@@ -215,7 +215,7 @@ impl GameTrait for Bluff {
                         self.centered_card.push(cards);
                         self.claimed = Some(claim);
                         if let Some(player) = self.get_next_turn_player(players){
-                            self.can_change_turn(&player);
+                            self.change_turn(&player);
                         }
                     }
                 }
@@ -226,7 +226,7 @@ impl GameTrait for Bluff {
                     return Err(anyhow::anyhow!("Not your Turn"));
                 }
                 if let Some(player) = self.get_next_turn_player(players){
-                    self.can_change_turn(&player);
+                    self.change_turn(&player);
                 }
                 Ok(())
             },
