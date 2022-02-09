@@ -1,24 +1,27 @@
 use std::collections::HashMap;
 
-use async_graphql::{Context, Enum, Object, SimpleObject,};
-use rand::{prelude::IteratorRandom, SeedableRng, };
+use async_graphql::{Context, Enum, Object, SimpleObject};
+use rand::{prelude::IteratorRandom, SeedableRng};
 use serde::Serialize;
 
-use crate::{data::{Rank, Storage, ServerResponse, GameMessage}, logic::{PlayerEvents, GameEvents, GameStarted, RoomUpdate}};
+use crate::{
+    data::{GameMessage, Rank, ServerResponse, Storage},
+    logic::{GameEvents, GameStarted, PlayerEvents, RoomUpdate},
+};
 
-use super::{GameTrait, PlayerGameData, StartMessages, PlayerMessages};
+use super::{GameTrait, PlayerGameData, PlayerMessages, StartMessages};
 
 #[derive(Clone, Serialize)]
 
 pub struct Bluff {
     turn_start: String,
     turn: String,
-    centered_card: Vec<Vec<Card>>,
-    deck_card: Vec<Card>,    claimed: Option<Card>
-
+    centered_card: Vec<(String,Vec<Card>)>,
+    deck_card: Vec<Card>,
+    claimed: Option<Card>,
 }
 
-#[derive(Clone, Serialize, PartialEq,Eq, SimpleObject,Debug)]
+#[derive(Clone, Serialize, PartialEq, Eq, SimpleObject, Debug)]
 pub struct Card {
     number: CardNum,
     color: CardColor,
@@ -65,7 +68,7 @@ impl From<u8> for Card {
     }
 }
 
-#[derive(Clone, Serialize, Copy, PartialEq, Eq, Enum,Debug)]
+#[derive(Clone, Serialize, Copy, PartialEq, Eq, Enum, Debug)]
 pub enum CardColor {
     Spade,
     Heart,
@@ -73,7 +76,7 @@ pub enum CardColor {
     Diamond,
 }
 
-#[derive(Clone, Serialize, Copy, PartialEq, Eq, Enum,Debug)]
+#[derive(Clone, Serialize, Copy, PartialEq, Eq, Enum, Debug)]
 pub enum CardNum {
     Ace,
     Two,
@@ -175,81 +178,90 @@ impl GameTrait for Bluff {
     ) -> Result<(), anyhow::Error> {
         match message {
             BluffPlayerMessages::RaiseEndRound => {
-                let p = players.iter_mut().find(|p|p.player.id==player_id);
-                if let Some(p)=p{
-                    if let PlayerGameData::BluffPlayerData(data) = &mut p.data{
+                let p = players.iter_mut().find(|p| p.player.id == player_id);
+                if let Some(p) = p {
+                    if let PlayerGameData::BluffPlayerData(data) = &mut p.data {
                         data.end_turn_raised = true;
                     }
                 }
-                if players.iter().all(|p|p.data.as_bluff_player_data().unwrap().end_turn_raised){
-                    if let Some(p)=self.get_next_round_player(players){
-                        self.turn=p.to_string();
-                        self.turn_start=p;
-                        for p in players{
-                            if let PlayerGameData::BluffPlayerData(data) = &mut p.data{
+                if players
+                    .iter()
+                    .all(|p| p.data.as_bluff_player_data().unwrap().end_turn_raised)
+                {
+                    if let Some(p) = self.get_next_round_player(players) {
+                        self.turn = p.to_string();
+                        self.turn_start = p;
+                        for p in players {
+                            if let PlayerGameData::BluffPlayerData(data) = &mut p.data {
                                 data.end_turn_raised = false;
                             }
                         }
-                        for cards in &self.centered_card{
-                            self.deck_card.append(&mut cards.clone());
+                        for cards in &self.centered_card {
+                            self.deck_card.append(&mut cards.1.clone());
                         }
                         self.centered_card.clear();
                         self.claimed = None;
                     }
                 }
                 Ok(())
-            },
-            BluffPlayerMessages::Deal(cards,claim) => {
+            }
+            BluffPlayerMessages::Deal(cards, claim) => {
                 if self.turn != player_id {
                     return Err(anyhow::anyhow!("Not your Turn"));
                 }
-                if let Some(claimed_previously)=& self.claimed{
-                    if claimed_previously!=&claim{
-                        return Err(anyhow::anyhow!("Cant claim another card in middle of round"))
+                if let Some(claimed_previously) = &self.claimed {
+                    if claimed_previously != &claim {
+                        return Err(anyhow::anyhow!(
+                            "Cant claim another card in middle of round"
+                        ));
                     }
                 }
-                let p = players.iter_mut().find(|p|p.player.id==player_id);
-                if let Some(p) =p {
-                    if let PlayerGameData::BluffPlayerData(data)= &mut p.data{
-                        data.cards = data.cards.iter().cloned().filter(|f|!cards.contains(f)).collect();
-                        self.centered_card.push(cards);
+                let p = players.iter_mut().find(|p| p.player.id == player_id);
+                if let Some(p) = p {
+                    if let PlayerGameData::BluffPlayerData(data) = &mut p.data {
+                        data.cards = data
+                            .cards
+                            .iter()
+                            .cloned()
+                            .filter(|f| !cards.contains(f))
+                            .collect();
+                        self.centered_card.push((p.player.id.clone(),cards));
                         self.claimed = Some(claim);
-                        if let Some(player) = self.get_next_turn_player(players){
+                        if let Some(player) = self.get_next_turn_player(players) {
                             self.change_turn(&player);
                         }
                     }
                 }
                 Ok(())
-            },
+            }
             BluffPlayerMessages::Pass => {
                 if self.turn != player_id {
                     return Err(anyhow::anyhow!("Not your Turn"));
                 }
-                if let Some(player) = self.get_next_turn_player(players){
+                if let Some(player) = self.get_next_turn_player(players) {
                     self.change_turn(&player);
                 }
                 Ok(())
-            },
+            }
             BluffPlayerMessages::Flip => {
                 if self.turn != player_id {
                     return Err(anyhow::anyhow!("Not your Turn"));
                 }
                 let mut to_transfer = None;
-                if let Some(last_cards) = self.centered_card.last(){
+                if let Some(last_cards) = self.centered_card.last() {
                     if let Some(claimed) = &self.claimed {
-                        if last_cards.iter().all(|card|  card==claimed){
+                        if last_cards.1.iter().all(|card| card == claimed) {
                             to_transfer = Some(player_id.to_string());
-                        }else{
-                            to_transfer = Some(self.turn_start.clone());
+                        } else {
+                            to_transfer = Some(last_cards.0.clone());
                         }
                     }
-                    
                 }
-                if let Some(to_transfer) = to_transfer{
-                    if let Some(p) = players.iter_mut().find(|p|p.player.id==to_transfer){
-                        if let PlayerGameData::BluffPlayerData(data) = &mut p.data{
-                            for cards in &self.centered_card{
-                                data.cards.append(&mut cards.clone());
+                if let Some(to_transfer) = to_transfer {
+                    if let Some(p) = players.iter_mut().find(|p| p.player.id == to_transfer) {
+                        if let PlayerGameData::BluffPlayerData(data) = &mut p.data {
+                            for cards in &self.centered_card {
+                                data.cards.append(&mut cards.1.clone());
                             }
                             self.centered_card.clear();
                             self.turn = to_transfer.clone();
@@ -259,7 +271,7 @@ impl GameTrait for Bluff {
                     }
                 }
                 Ok(())
-            },
+            }
         }
     }
 
@@ -310,21 +322,29 @@ impl GameTrait for Bluff {
         Self::InputHandler { room_id, player_id }
     }
 
-    fn start_game(_data: Self::StartMessage, players: &[crate::logic::GamePlayer], player_id: &str) -> Self {
-        let cards = (0..52).map(|i|Card::from(i)).filter(|f| {
-            !players.iter()
-                .fold(vec![], |mut acc, p| {
-                    acc.append(&mut p.data.as_bluff_player_data().unwrap().cards.clone());
-                    acc
-                })
-                .contains(&f)
-        }).collect();
-        Self{
+    fn start_game(
+        _data: Self::StartMessage,
+        players: &[crate::logic::GamePlayer],
+        player_id: &str,
+    ) -> Self {
+        let cards = (0..52)
+            .map(|i| Card::from(i))
+            .filter(|f| {
+                !players
+                    .iter()
+                    .fold(vec![], |mut acc, p| {
+                        acc.append(&mut p.data.as_bluff_player_data().unwrap().cards.clone());
+                        acc
+                    })
+                    .contains(&f)
+            })
+            .collect();
+        Self {
             turn_start: player_id.to_string(),
             turn: player_id.to_string(),
             centered_card: vec![],
             deck_card: cards,
-            claimed:None,
+            claimed: None,
         }
     }
 }
@@ -356,7 +376,11 @@ pub struct BluffInputs {
 
 #[Object]
 impl BluffInputs {
-    pub async fn start_game<'ctx>(&self,  ctx: &Context<'_>,seed:u64) -> Result<bool, async_graphql::Error> {
+    pub async fn start_game<'ctx>(
+        &self,
+        ctx: &Context<'_>,
+        seed: u64,
+    ) -> Result<bool, async_graphql::Error> {
         let room = {
             let data = ctx.data::<Storage>()?;
 
@@ -384,10 +408,7 @@ impl BluffInputs {
         Ok(true)
     }
 
-    pub async fn pass<'ctx>(
-        &self,
-        ctx: &Context<'_>,
-    ) -> Result<bool, async_graphql::Error> {
+    pub async fn pass<'ctx>(&self, ctx: &Context<'_>) -> Result<bool, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
         let room = {
             let mut rooms = data.private_rooms.write().await;
@@ -415,10 +436,7 @@ impl BluffInputs {
         Ok(true)
     }
 
-    pub async fn flip<'ctx>(
-        &self,
-        ctx: &Context<'_>,
-    ) -> Result<bool, async_graphql::Error> {
+    pub async fn flip<'ctx>(&self, ctx: &Context<'_>) -> Result<bool, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
         let room = {
             let mut rooms = data.private_rooms.write().await;
@@ -479,8 +497,8 @@ impl BluffInputs {
     pub async fn deal<'ctx>(
         &self,
         ctx: &Context<'_>,
-        cards:Vec<u8>,
-        claim:u8,
+        cards: Vec<u8>,
+        claim: u8,
     ) -> Result<bool, async_graphql::Error> {
         let data = ctx.data::<Storage>()?;
         let room = {
@@ -493,8 +511,8 @@ impl BluffInputs {
                 &self.player_id,
                 PlayerEvents::GameMessage(PlayerMessages::BluffPlayerMessages(
                     BluffPlayerMessages::Deal(
-                        cards.into_iter().map(|c|Card::from(c)).collect(),
-                        Card::from(claim)
+                        cards.into_iter().map(|c| Card::from(c)).collect(),
+                        Card::from(claim),
                     ),
                 )),
             )
@@ -514,26 +532,24 @@ impl BluffInputs {
 }
 
 #[Object]
-impl Bluff{
-
-    pub async fn deck(&self)->Vec<Card>{
+impl Bluff {
+    pub async fn deck(&self) -> Vec<Card> {
         self.deck_card.clone()
     }
 
-    pub async fn centered_card(&self)->Vec<Vec<Card>>{
-        self.centered_card.clone()
+    pub async fn centered_card(&self) -> Vec<Vec<Card>> {
+        self.centered_card.iter().map(|f|f.1.clone()).collect()
     }
 
-    pub async fn turn(&self)->String {
+    pub async fn turn(&self) -> String {
         self.turn.clone()
     }
 
-    pub async fn round_player(&self)->String {
+    pub async fn round_player(&self) -> String {
         self.turn_start.clone()
     }
 
-    pub async fn claimed_card(&self)->Option<Card>{
+    pub async fn claimed_card(&self) -> Option<Card> {
         self.claimed.clone()
     }
-
 }
