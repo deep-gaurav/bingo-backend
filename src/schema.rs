@@ -7,6 +7,7 @@ use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::RwLock;
 
+use crate::data::ChatMessage;
 use crate::data::PlayerConnected;
 use crate::data::PlayerJoined;
 use crate::data::PlayerLeft;
@@ -36,6 +37,7 @@ impl QueryRoot {
     pub async fn ping(&self) -> String {
         "pong".into()
     }
+
 }
 
 pub struct MutationRoot;
@@ -137,6 +139,37 @@ impl MutationRoot {
             }))
             .await;
         Ok("Disconnected".into())
+    }
+
+
+    pub async fn chat<'ctx>(
+        &self,
+        ctx: &Context<'_>,
+        player_id: String,
+        room_id: String,
+        message:String,
+    ) -> Result<String, async_graphql::Error> {
+        let data = ctx.data::<Storage>()?;
+
+        let (room, player) = {
+            let mut rooms = data.private_rooms.write().await;
+
+            let room = rooms
+                .get_mut(&room_id)
+                .ok_or_else(|| async_graphql::Error::from("Room does not exist"))?;
+                
+            let player = room.state.get_player(&player_id).ok_or("Player not in room")?.clone();
+            (room.clone(), player)
+        };
+
+        room
+            .state
+            .broadcast(ServerResponse::ChatMessage(ChatMessage {
+                player,
+                message
+            }))
+            .await;
+        Ok("Sucess".into())
     }
 }
 

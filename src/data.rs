@@ -358,6 +358,12 @@ pub struct PlayerRemoved {
     pub room: Room,
 }
 
+#[derive(SimpleObject, Serialize, Clone)]
+pub struct ChatMessage{
+    pub player:Player,
+    pub message:String,
+}
+
 #[derive(Serialize, Union, Clone)]
 pub enum ServerResponse {
     PlayerJoined(PlayerJoined),
@@ -366,6 +372,7 @@ pub enum ServerResponse {
     PlayerRemoved(PlayerRemoved),
 
     GameMessage(GameMessage),
+    ChatMessage(ChatMessage),
 }
 
 #[derive(SimpleObject, Serialize, Clone)]
