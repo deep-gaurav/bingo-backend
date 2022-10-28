@@ -22,8 +22,8 @@ use crate::{
     schema::{MutationRoot, Subscription},
 };
 
-#[tokio::main]
-async fn main() {
+#[shuttle_service::main]
+async fn warp() -> shuttle_service::ShuttleWarp<(impl warp::Reply,)> {
     pretty_env_logger::init();
     let private_rooms = Arc::new(RwLock::new(HashMap::new()));
     let schema = Schema::build(QueryRoot, MutationRoot, Subscription)
@@ -58,13 +58,14 @@ async fn main() {
                 .build(),
         );
 
-    warp::serve(routes)
-        .run((
-            [0, 0, 0, 0],
-            std::env::var("PORT")
-                .unwrap_or_else(|_| "8000".into())
-                .parse()
-                .unwrap_or(8000),
-        ))
-        .await;
+    // warp::serve(routes)
+    //     .run((
+    //         [0, 0, 0, 0],
+    //         std::env::var("PORT")
+    //             .unwrap_or_else(|_| "8000".into())
+    //             .parse()
+    //             .unwrap_or(8000),
+    //     ))
+    //     .await;
+    Ok(routes.boxed()).map_err(|e| shuttle_service::Error::Custom(e))
 }

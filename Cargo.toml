@@ -8,11 +8,13 @@ authors = [
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 async-graphql = "2"
 warp = "0.3"
+shuttle-service = { version = "0.6.0", features = ["web-warp"] }
 async-graphql-warp = "2"
 rand = "0.8"
 anyhow = "1"
@@ -25,7 +27,7 @@ tokio-stream = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 async-trait = "0.1.51"
-ndarray = {version = "0.15", features = ["serde"] }
+ndarray = { version = "0.15", features = ["serde"] }
 colors-transform = "0.2.11"
 
 [profile.release]
