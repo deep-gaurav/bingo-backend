@@ -14,7 +14,7 @@ edition = "2018"
 tokio = { version = "1", features = ["full"] }
 async-graphql = "2"
 warp = "0.3"
-shuttle-service = { version = "0.6.0", features = ["web-warp"] }
+shuttle-service = { version = "0.7.1", features = ["web-warp"] }
 async-graphql-warp = "2"
 rand = "0.8"
 anyhow = "1"
