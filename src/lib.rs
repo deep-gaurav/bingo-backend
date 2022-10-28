@@ -24,7 +24,9 @@ use crate::{
 
 #[shuttle_service::main]
 async fn warp() -> shuttle_service::ShuttleWarp<(impl warp::Reply,)> {
-    pretty_env_logger::init();
+    if let Err(err) = pretty_env_logger::try_init() {
+        eprintln!("ERR {:#?}", err);
+    }
     let private_rooms = Arc::new(RwLock::new(HashMap::new()));
     let schema = Schema::build(QueryRoot, MutationRoot, Subscription)
         .data(Storage {
