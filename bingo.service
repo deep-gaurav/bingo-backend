@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=deep
 WorkingDirectory=/home/deep/bingo
-Environment="PORT=9338"
+Environment="PORT=9339"
 ExecStart=/home/deep/bingo/bingo-backend
 Restart=always
 
