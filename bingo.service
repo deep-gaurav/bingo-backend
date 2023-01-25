@@ -1,0 +1,13 @@
+[Unit]
+Description=bingo game server
+After=network.target
+
+[Service]
+User=deep
+WorkingDirectory=/home/deep/bingo
+Environment="PORT=9338"
+ExecStart=/home/deep/bingo/bingo-backend
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

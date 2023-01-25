@@ -8,14 +8,12 @@ authors = [
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[lib]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-async-graphql = "2"
+async-graphql = "5.0.5"
 warp = "0.3"
-shuttle-service = { version = "0.7.1", features = ["web-warp"] }
-async-graphql-warp = "2"
+async-graphql-warp = "5.0.5"
 rand = "0.8"
 anyhow = "1"
 log = "0.4"
