@@ -1,4 +1,4 @@
-name: Rust
+name: Build and Deploy to Big Self Cloud Prod
 
 on:
   push:
@@ -8,35 +8,62 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-    
-    
-    permissions:
-      contents: write
 
     steps:
     - uses: actions/checkout@v3
     - name: Install dependencies
       run: sudo apt update && sudo apt install -y clang cmake libevent-dev libclang-dev libcurl4-openssl-dev curl
-    - run: rustup toolchain install stable --profile minimal
-    - uses: Swatinem/rust-cache@v2
-    - name: Build
-      run: cargo build --release
 
-    - name: Build Docker image
-      run: |
-        docker build -t syncplayer:latest .
-    - name: Save Docker image to a .tar file
-      run: |
-        docker save syncplayer:latest -o syncplayer.tar
+    - name: Use cache
+      id: cache-rust
+      uses: actions/cache@v4
+      with:
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        path: |
+          /home/runner/.cargo
+          /home/runner/work/tvmate/tvmate/target
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
+    - name: Add aarch64
+      run: rustup target add aarch64-unknown-linux-gnu
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Install Cross
+      run: cargo install cross --git https://github.com/cross-rs/cross
+      
+    - name: Build
+      run: cross build --target aarch64-unknown-linux-gnu --release
+        
+    - name: Car target
+      run: ls -la target/aarch64-unknown-linux-gnu/
+
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        platforms: linux/arm64
+        push: false
+        tags: tvmate:latest
+        file: Dockerfile.arm64
+        outputs: type=docker,dest=bingo.tar
+
+    # - name: Load Docker image
+    #   run: docker load --input /tmp/myimage.tar
+
+    # - name: Export image
+    #   run: docker save tvmate:latest -o tvmate.tar
+
+    - name: Compress image
+      run: gzip bingo.tar
+
     - name: Push To SelfCloud
       run: |
-        curl --location 'https://bigcloud.deepgaurav.com/cloud/image/push' --form 'project_id="1ada4aaa-b884-4ea2-baf2-9d0836bef408"' --form "token=$SELF_CLOUD_TOKEN" --form 'image=@"syncplayer.tar"'
+        curl --location --fail --show-error 'https://bigcloud.deepgaurav.com/cloud/image/push' --form 'project_id="1ada4aaa-b884-4ea2-baf2-9d0836bef408"' --form "token=$SELF_CLOUD_TOKEN" --form 'image=@"bingo.tar.gz"'
       env:
         SELF_CLOUD_TOKEN: ${{ secrets.SELF_CLOUD_TOKEN }}
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: target/release/bingo-backend
