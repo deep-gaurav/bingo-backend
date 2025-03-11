@@ -34,9 +34,9 @@ jobs:
         docker save syncplayer:latest -o syncplayer.tar
     - name: Push To SelfCloud
       run: |
-        curl --location 'https://cloud.deepwith.in/cloud/image/push' --form 'project_id="54e42b71-dddc-4ecc-aefb-25447752df22"' --form "token=GeQelOVZCDVPHa8hLlV5" --form 'image=@"syncplayer.tar"'
+        curl --location 'https://bigcloud.deepgaurav.com/cloud/image/push' --form 'project_id="1ada4aaa-b884-4ea2-baf2-9d0836bef408"' --form "token=$SELF_CLOUD_TOKEN" --form 'image=@"syncplayer.tar"'
       env:
-        SELC_CLOUD_TOKEN: ${{ secrets.SELC_CLOUD_TOKEN }}
+        SELF_CLOUD_TOKEN: ${{ secrets.SELF_CLOUD_TOKEN }}
     - name: Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
