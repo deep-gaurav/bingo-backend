@@ -1,0 +1,6 @@
+FROM debian:bookworm-slim
+RUN mkdir /app
+COPY target/aarch64-unknown-linux-gnu/release/bingo-backend /app/server
+
+WORKDIR /app
+ENTRYPOINT ["/app/server"]
